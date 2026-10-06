@@ -233,7 +233,7 @@ export function publicOrigin(request: Request): string {
   const fwd = request.headers.get("x-forwarded-host");
   const host = fwd || url.host;
   if (/localhost|127\.0\.0\.1/.test(host))
-    return "https://project--664af27c-1001-460a-83e8-7147cbb193c1-dev.lovable.app";
+    return "https://megsyai.com";
   return `https://${host}`;
 }
 

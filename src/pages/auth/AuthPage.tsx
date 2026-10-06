@@ -292,7 +292,7 @@ const AuthPage = () => {
             action: {
               label: "Open",
               onClick: () => {
-                window.location.href = "https://cherish-nexus.lovable.app/auth";
+                window.location.href = "/auth";
               },
             },
           });
@@ -1304,7 +1304,7 @@ const AuthPage = () => {
                 <p className="mt-4 lg:mt-12 text-[11px] text-foreground/65 leading-relaxed">
                   {authT("termsAgreePrefix")}
                   <a
-                    href="https://terms.megsyai.com"
+                    href="/terms"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-foreground/65 underline underline-offset-2 hover:text-foreground transition-colors"
@@ -1313,7 +1313,7 @@ const AuthPage = () => {
                   </a>
                   {authT("and")}
                   <a
-                    href="https://privacy.megsyai.com"
+                    href="/privacy"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-foreground/65 underline underline-offset-2 hover:text-foreground transition-colors"

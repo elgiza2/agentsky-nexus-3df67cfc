@@ -96,7 +96,7 @@ const CookieConsent = () => {
           <p className="cookieHeading">{tx("Cookies")}</p>
           <p className="cookieDescription">
             {tx("We use cookies to keep Megsy reliable and improve your experience.")}{" "}
-            <a href="https://privacy.megsyai.com" target="_blank" rel="noopener noreferrer">
+            <a href="/privacy" target="_blank" rel="noopener noreferrer">
               {tx("Learn more about our cookie policy")}
             </a>
             .
