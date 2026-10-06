@@ -2,9 +2,8 @@ import { useEffect, useState } from "react";
 import { useUserLang } from "@/lib/authI18n";
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { ArrowUpRight, X } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { isOctoberOfferActive, OCTOBER_OFFER_END } from "@/lib/octoberOffer";
-import artwork from "@/assets/october-celebration.png.asset.json";
 import { getAuthState, subscribeAuthState } from "@/lib/authStore";
 
 const dismissalKey = "megsy-october-6-2026-auth-sheet-seen";
@@ -40,11 +39,10 @@ export default function OctoberOfferDialog() {
     >
       <div className="october-sheet-handle" aria-hidden="true" />
       <div className="october-sheet-inner">
-        <img src={artwork.url} alt={ar ? "تصميم ذكرى ٦ أكتوبر: أنور السادات وعبد الفتاح السيسي وعلم مصر والقاهرة" : "October 6 commemorative artwork with Anwar Sadat, Abdel Fattah el-Sisi, Egypt’s flag and Cairo"} width={1365} height={768} className="october-sheet-artwork" />
+        <img src="/promo/october-6.png" alt={ar ? "تصميم ذكرى ٦ أكتوبر: أنور السادات وعبد الفتاح السيسي وعلم مصر والقاهرة" : "October 6 commemorative artwork with Anwar Sadat, Abdel Fattah el-Sisi, Egypt’s flag and Cairo"} width={1365} height={768} className="october-sheet-artwork" />
         <div className="october-sheet-copy">
           <div className="october-sheet-eyebrow">
             <span>{ar ? "٦ أكتوبر 🇪🇬" : "OCTOBER 6 🇪🇬"}</span>
-            <button type="button" className="october-sheet-close" onClick={close} aria-label={ar ? "تخطي الإعلان" : "Dismiss announcement"}><X size={16} /></button>
           </div>
           <SheetTitle className="october-sheet-title">{ar ? "يوم النصر… وهديتك وصلت" : "Victory day — your gift is here"}</SheetTitle>
           <SheetDescription className="october-sheet-description">{ar ? "٢٤ ساعة كل حاجة مجانية وبلا حدود. عدا الصور والفيديو." : "24 hours, everything free and unlimited. Except images and video."}</SheetDescription>
