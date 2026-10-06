@@ -1,33 +1,31 @@
 # Megsy AI
 
-> Megsy is an Egyptian AI agent workspace powered by Megay 3.9 — the first Arabic-native large language model built and trained in Egypt. Megsy offers chat, image generation, web search, code tools, document analysis, and slide/site generation, free on every plan.
+> Megsy AI is an AI agent workspace made by an Egyptian company. You can chat, search the web, run research, make images and videos, create slides and documents, build simple websites, and run agents that use a browser. It works in English and Egyptian Arabic.
 
 ## Key facts
 
-- Product: Megsy AI (megsyai.com)
-- Default model: Megay 3.9 (in-house, Egyptian-built)
-- Languages: 100+, natively tuned for Arabic and Egyptian dialect
-- Capabilities: AI chat, web search, deep research, image generation and editing, video generation, code, PDFs/documents, presentations, app building, browser automation, and published mini-sites
-- Free tier: unlimited Megay 3.9 chat
-- Support: Support@megsyai.com
+- Product: Megsy AI (https://www.megsyai.com)
+- Company: Egyptian company; payments in EGP, including Vodafone Cash through Kashier
+- Chat: free
+- Credits: images cost 2 credits, videos cost 25 credits, agent tasks cost 1 to 50 credits
+- Paid plans unlock media generation and more credits; see Pricing
+- Languages: English and Egyptian Arabic (ar-eg)
+- Support: support@megsyai.com
 
 ## Primary pages
 
-- [Home](https://www.megsyai.com/): product overview
-- [Megay 3.9 model page](https://www.megsyai.com/megay): the first Egyptian AI model — Arabic & English
-- [Megsy 3.9 model details](https://www.megsyai.com/megsy-model): technical model card
-- [Pricing](https://www.megsyai.com/pricing): plans and limits
-- [About](https://www.megsyai.com/about): company and mission
-- [Features guide](https://www.megsyai.com/features): capability walkthrough
-- [Contact](https://www.megsyai.com/contact): reach the team
+- [Home](https://www.megsyai.com/)
+- [Pricing](https://www.megsyai.com/pricing)
+- [Features](https://www.megsyai.com/features)
+- [Models](https://www.megsyai.com/models)
+- [About](https://www.megsyai.com/about)
+- [Contact](https://www.megsyai.com/contact)
+- [Arabic page](https://www.megsyai.com/ar-eg)
 
 ## Policies
 
 - [Terms](https://www.megsyai.com/terms)
 - [Privacy](https://www.megsyai.com/privacy)
-- [AI disclaimer](https://www.megsyai.com/ai-disclaimer)
-- [Content policy](https://www.megsyai.com/content-policy)
-
-## Full corpus
-
-- [llms-full.txt](https://www.megsyai.com/llms-full.txt): concatenated markdown of the public site for offline ingestion.
+- [Refund policy](https://www.megsyai.com/refund)
+- [AI disclaimer](https://www.megsyai.com/legal/ai-disclaimer)
+- [Content policy](https://www.megsyai.com/policies/content)
