@@ -73,6 +73,18 @@ const TELEGRAM_SCRIPT = `(function () {
   } catch (e) {}
 })();`;
 
+const GTM_SCRIPT = `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-NBZ77LRT');`;
+
+const CLARITY_SCRIPT = `(function(c,l,a,r,i,t,y){
+    c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+    t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+    y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+})(window, document, "clarity", "script", "ythzqtrpnz");`;
+
 const DEFERRED_FONTS_SCRIPT = `(function () {
   var HREF =
     "https://fonts.googleapis.com/css2?family=Inter:wght@700&family=Instrument+Serif:ital@0;1&family=Barlow:wght@300;400;500;600&family=DM+Sans:wght@400;500;600;700&family=Noto+Serif+Arabic:wght@400;600;700&family=Almarai:wght@300;400;700;800&family=Cairo:wght@400;500;600;700&family=Tajawal:wght@400;500;700&family=Readex+Pro:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=Sora:wght@400;500;600;700;800&family=Archivo+Black&family=Manrope:wght@400;500;600;700&display=swap";
@@ -372,6 +384,8 @@ function RootShell({ children }: { children: ReactNode }) {
   return (
     <html lang="en" dir="ltr" className="dark" translate="no" suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: GTM_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: CLARITY_SCRIPT }} />
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
         <style dangerouslySetInnerHTML={{ __html: BOOT_STYLE }} />
         <style dangerouslySetInnerHTML={{ __html: GARAMOND_STYLE }} />
@@ -381,6 +395,14 @@ function RootShell({ children }: { children: ReactNode }) {
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: ORG_JSON_LD }} />
       </head>
       <body>
+        <noscript>
+          <iframe
+            src="https://www.googletagmanager.com/ns.html?id=GTM-NBZ77LRT"
+            height="0"
+            width="0"
+            style={{ display: "none", visibility: "hidden" }}
+          />
+        </noscript>
         <svg width="0" height="0" style={{ position: "absolute" }} aria-hidden="true">
           <defs>
             <filter id="megsy-glass-warp" x="-10%" y="-10%" width="120%" height="120%">
