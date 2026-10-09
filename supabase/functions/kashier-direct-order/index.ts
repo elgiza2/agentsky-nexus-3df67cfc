@@ -18,13 +18,19 @@ Deno.serve(async (request) => {
   const interval = String(body.interval ?? "monthly").toLowerCase() === "yearly" ? "yearly" : "monthly";
   const { data: row } = await admin.from("billing_catalog").select("tier,interval,egp_price,credits").eq("tier", tier).eq("interval", interval).eq("active", true).maybeSingle();
   const amount = Number(row?.egp_price ?? 0);
-  if (!row || !Number.isFinite(amount) || amount <= 0) return json({ error: "This plan is not available for test payment." }, 400);
+  if (!row || !Number.isFinite(amount) || amount <= 0) return json({ error: "This plan is not available for local card payment." }, 400);
+  // Keep the FEP host and Payment API Key in the same mode. Kashier keys are
+  // mode-scoped; sending a live key to test-fep (or the reverse) is rejected.
+  const mode = (Deno.env.get("KASHIER_MODE") || "live").trim().toLowerCase() === "test" ? "test" : "live";
   const merchantId = Deno.env.get("KASHIER_MERCHANT_ID")?.trim();
-  const paymentKey = (Deno.env.get("KASHIER_API_KEY") || Deno.env.get("KASHIER_PAYMENT_API_KEY"))?.trim();
-  if (!merchantId || !paymentKey) return json({ error: "Kashier test credentials are not configured" }, 503);
-  const orderId = `test_${crypto.randomUUID()}`;
-  const { error } = await admin.from("kashier_orders").insert({ order_id: orderId, user_id: auth.user.id, amount, currency: "EGP", credits: Number(row.credits ?? 0), plan: tier, method: "card", status: "pending", raw: { interval, direct_api: true, test_mode: true } });
+  // The Direct API hash specifically requires the Payment API Key, not the
+  // Kashier Secret Key. Prefer the explicitly named variable when both exist.
+  const paymentKey = (Deno.env.get("KASHIER_PAYMENT_API_KEY") || Deno.env.get("KASHIER_API_KEY"))?.trim();
+  if (!merchantId || !paymentKey) return json({ error: "Kashier Payment API credentials are not configured" }, 503);
+  const orderId = `${mode === "test" ? "test" : "ord"}_${crypto.randomUUID()}`;
+  const { error } = await admin.from("kashier_orders").insert({ order_id: orderId, user_id: auth.user.id, amount, currency: "EGP", credits: Number(row.credits ?? 0), plan: tier, method: "card", status: "pending", raw: { interval, direct_api: true, test_mode: mode === "test" } });
   if (error) return json({ error: error.message }, 500);
   const hash = await hmac(paymentKey, `/?payment=${merchantId}.${orderId}.${amount}.EGP`);
-  return json({ order_id: orderId, merchant_id: merchantId, amount, currency: "EGP", hash, endpoint: "https://test-fep.kashier.io/v3/orders/", webhook_url: `${Deno.env.get("SUPABASE_URL")}/functions/v1/kashier-webhook` });
+  const endpoint = mode === "test" ? "https://test-fep.kashier.io/v3/orders/" : "https://fep.kashier.io/v3/orders/";
+  return json({ order_id: orderId, merchant_id: merchantId, amount, currency: "EGP", hash, endpoint, webhook_url: `${Deno.env.get("SUPABASE_URL")}/functions/v1/kashier-webhook` });
 });
