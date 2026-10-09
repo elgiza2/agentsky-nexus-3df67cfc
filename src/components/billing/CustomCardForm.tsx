@@ -99,7 +99,7 @@ const METHODS: Array<{
 ];
 
 export default function CustomCardForm({ open, tier, interval, onClose }: Props) {
-  const [method, setMethod] = useState<PaymentMethod | null>(null);
+  const [method, setMethod] = useState<PaymentMethod | null>("card");
   const [number, setNumber] = useState("");
   const [name, setName] = useState("");
   const [month, setMonth] = useState("");
@@ -272,245 +272,255 @@ export default function CustomCardForm({ open, tier, interval, onClose }: Props)
   };
 
   return (
-    <div
-      className="fixed inset-0 z-[120] overflow-y-auto bg-[#f4f6f8] p-3 text-[#17191c] sm:p-8"
-      dir="rtl"
-    >
-      <div className="mx-auto min-h-full w-full max-w-[980px] overflow-hidden rounded-[30px] border border-black/[0.07] bg-white shadow-[0_28px_90px_rgba(15,23,42,.14)] sm:min-h-0">
-        <div className="flex items-center justify-between border-b border-black/[0.06] px-5 py-4 sm:px-8">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#17191c] text-white">
-              <span className="text-sm font-bold">m</span>
+    <div className="fixed inset-0 z-[120] overflow-y-auto bg-[#f7f8fa] text-[#1f2328]" dir="rtl">
+      <div className="mx-auto min-h-dvh w-full max-w-[1120px] px-4 py-5 sm:px-8 sm:py-8">
+        <header className="mx-auto mb-7 flex max-w-[980px] items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#111315] text-white">
+              <span className="text-base font-bold">m</span>
             </div>
-            <span className="text-sm font-semibold tracking-tight">إتمام الدفع</span>
+            <span className="text-[15px] font-semibold tracking-[-0.02em]">Megsy</span>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={busy}
-            className="rounded-full p-2 text-black/45 transition hover:bg-black/[0.05] hover:text-black disabled:opacity-40"
-            aria-label="إغلاق"
+          <div className="flex items-center gap-1.5 text-[12px] text-[#69707a]">
+            <LockKeyhole className="h-3.5 w-3.5" /> دفع آمن عبر Kashier
+          </div>
+        </header>
+        <div
+          className="mx-auto grid max-w-[980px] items-start gap-6 lg:grid-cols-[minmax(0,1fr)_320px]"
+          dir="ltr"
+        >
+          <main
+            className="rounded-2xl border border-[#e4e7eb] bg-white shadow-[0_8px_30px_rgba(31,35,40,.05)]"
+            dir="rtl"
           >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-        <div className="grid gap-0 lg:grid-cols-[1fr_340px]" dir="ltr">
-          <main className="p-5 sm:p-8" dir="rtl">
-            <div className="mb-7 flex items-center gap-3 text-[11px] font-semibold text-black/45">
-              <span className="flex items-center gap-1.5 text-[#17191c]">
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#17191c] text-[10px] text-white">
-                  1
-                </span>{" "}
-                وسيلة الدفع
-              </span>
-              <span className="h-px w-8 bg-black/10" />
-              <span className={method ? "text-[#17191c]" : ""}>2 بيانات الدفع</span>
-              <span className="h-px w-8 bg-black/10" />
-              <span>3 تأكيد</span>
-            </div>
-            {threeDsUrl ? (
-              <div className="space-y-4">
-                <StatusIcon type="pending" />
-                <h2 className="text-center text-xl font-semibold">تحقق إضافي من البنك</h2>
-                <p className="text-center text-sm text-black/55">
-                  أكمل الخطوة داخل نافذة البنك لإتمام العملية بأمان.
-                </p>
-                <iframe
-                  title="تحقق البنك"
-                  src={threeDsUrl}
-                  className="h-[480px] w-full rounded-2xl border border-black/10 bg-white"
-                />
-              </div>
-            ) : result === "success" ? (
-              <div className="space-y-4 py-12 text-center">
-                <StatusIcon type="success" />
-                <h2 className="text-2xl font-semibold">تم إرسال الدفع</h2>
-                <p className="text-sm text-black/55">بنأكد العملية ونفعّل اشتراكك خلال لحظات.</p>
+            <div className="border-b border-[#eef0f2] px-5 py-5 sm:px-8">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[12px] font-medium text-[#69707a]">الخطوة الأخيرة</p>
+                  <h1 className="mt-1 text-[24px] font-semibold tracking-[-0.04em] text-[#17191c]">
+                    إتمام الدفع
+                  </h1>
+                </div>
                 <button
                   type="button"
                   onClick={onClose}
-                  className="mt-4 h-12 w-full rounded-2xl bg-[#17191c] px-5 font-semibold text-white transition hover:bg-black"
+                  disabled={busy}
+                  className="rounded-full p-2 text-[#8a919b] transition hover:bg-[#f2f3f5] hover:text-[#17191c] disabled:opacity-40"
+                  aria-label="إغلاق"
                 >
-                  متابعة
+                  <X className="h-5 w-5" />
                 </button>
               </div>
-            ) : !method ? (
-              <>
-                <div className="mb-6">
-                  <p className="mb-2 text-xs font-semibold text-[#635bff]">دفع آمن عبر Kashier</p>
-                  <h1 className="text-[28px] font-semibold tracking-[-0.04em] sm:text-[34px]">
-                    اختار طريقة الدفع
-                  </h1>
-                  <p className="mt-2 max-w-xl text-sm leading-7 text-black/55">
-                    كل الوسائل المتاحة لحسابك في بوابة Kashier، في مكان واحد وبخطوات واضحة.
+            </div>
+            {threeDsUrl ? (
+              <div className="p-5 sm:p-8">
+                <div className="space-y-4">
+                  <StatusIcon type="pending" />
+                  <h2 className="text-center text-xl font-semibold">تحقق إضافي من البنك</h2>
+                  <p className="text-center text-sm leading-6 text-[#69707a]">
+                    أكمل الخطوة داخل نافذة البنك لإتمام العملية بأمان.
                   </p>
+                  <iframe
+                    title="تحقق البنك"
+                    src={threeDsUrl}
+                    className="h-[480px] w-full rounded-xl border border-[#e4e7eb] bg-white"
+                  />
                 </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {METHODS.map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() =>
-                        item.id === "card" ? setMethod(item.id) : void openHostedCheckout(item.id)
-                      }
-                      disabled={busy}
-                      className="group rounded-2xl border border-black/[0.09] bg-white p-4 text-right transition hover:-translate-y-0.5 hover:border-[#635bff]/50 hover:shadow-[0_12px_30px_rgba(99,91,255,.10)] disabled:opacity-50"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <span
-                          className={`flex h-11 w-11 items-center justify-center rounded-2xl ${item.tone === "red" ? "bg-red-50 text-red-600" : item.tone === "violet" ? "bg-violet-50 text-violet-600" : item.tone === "amber" ? "bg-amber-50 text-amber-600" : "bg-blue-50 text-blue-600"}`}
-                        >
-                          <item.icon className="h-5 w-5" />
-                        </span>
-                        <span className="rounded-full bg-black/[0.04] px-2 py-1 text-[10px] font-semibold text-black/45">
-                          {item.badge}
-                        </span>
-                      </div>
-                      <div className="mt-4 flex items-center justify-between gap-2">
-                        <div>
-                          <p className="text-[15px] font-semibold">{item.title}</p>
-                          <p className="mt-1 text-[11.5px] leading-5 text-black/50">
-                            {item.detail}
-                          </p>
-                        </div>
-                        <ChevronLeft className="h-4 w-4 text-black/30 transition group-hover:-translate-x-1" />
-                      </div>
-                    </button>
-                  ))}
-                </div>
-                <div className="mt-5 flex items-center gap-2 rounded-2xl bg-[#f7f7f8] px-4 py-3 text-xs text-black/50">
-                  <QrCode className="h-4 w-4 shrink-0 text-black/45" /> قد تظهر خيارات QR أو Basata
-                  تلقائيًا حسب تفعيلها في حساب Kashier.
-                </div>
-                {error && (
-                  <p
-                    role="alert"
-                    className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700"
+              </div>
+            ) : result === "success" ? (
+              <div className="p-8 sm:p-14">
+                <div className="space-y-4 text-center">
+                  <StatusIcon type="success" />
+                  <h2 className="text-2xl font-semibold">تم إرسال الدفع</h2>
+                  <p className="text-sm leading-6 text-[#69707a]">
+                    بنأكد العملية ونفعّل اشتراكك خلال لحظات.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="mt-3 h-12 w-full rounded-xl bg-[#111315] px-5 text-sm font-semibold text-white transition hover:bg-black"
                   >
-                    {error}
-                  </p>
-                )}
-              </>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setMethod(null)}
-                  className="mb-5 inline-flex items-center gap-1.5 text-xs font-semibold text-black/50 hover:text-black"
-                >
-                  <ArrowLeft className="h-3.5 w-3.5" /> تغيير الوسيلة
-                </button>
-                <div className="mb-6">
-                  <p className="mb-2 text-xs font-semibold text-[#635bff]">بطاقة بنكية</p>
-                  <h2 className="text-2xl font-semibold tracking-[-0.03em]">بيانات البطاقة</h2>
-                  <p className="mt-1 text-sm text-black/50">
-                    بيانات البطاقة لا يتم حفظها على موقعنا.
-                  </p>
+                    متابعة
+                  </button>
                 </div>
-                <form onSubmit={submitCard} className="space-y-4" autoComplete="off">
-                  <label className="block text-sm font-medium">
-                    رقم البطاقة
-                    <input
-                      inputMode="numeric"
-                      autoComplete="cc-number"
-                      value={formatCardNumber(number)}
-                      onChange={(e) => setNumber(e.target.value)}
-                      placeholder="0000 0000 0000 0000"
-                      className="mt-2 h-12 w-full rounded-xl border border-black/10 bg-white px-4 outline-none transition focus:border-[#635bff] focus:ring-4 focus:ring-[#635bff]/10"
-                    />
-                  </label>
-                  <label className="block text-sm font-medium">
-                    الاسم على البطاقة
-                    <input
-                      autoComplete="cc-name"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="الاسم بالكامل"
-                      className="mt-2 h-12 w-full rounded-xl border border-black/10 bg-white px-4 outline-none transition focus:border-[#635bff] focus:ring-4 focus:ring-[#635bff]/10"
-                    />
-                  </label>
-                  <div className="grid grid-cols-3 gap-3">
-                    <Field label="الشهر" value={month} onChange={setMonth} placeholder="MM" />
-                    <Field label="السنة" value={year} onChange={setYear} placeholder="YY" />
-                    <Field label="CVV" value={cvv} onChange={setCvv} placeholder="•••" secret />
+              </div>
+            ) : (
+              <div className="p-5 sm:p-8">
+                <div className="rounded-xl border border-[#e5e8ec] bg-[#fbfcfd] p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#111315] text-white">
+                      <ShieldCheck className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="text-[13px] font-semibold">بياناتك محمية</p>
+                      <p className="mt-0.5 text-[11px] text-[#69707a]">
+                        يتم تشفير الدفع ومعالجته بواسطة Kashier.
+                      </p>
+                    </div>
                   </div>
-                  {error && (
+                </div>
+                <section className="mt-7">
+                  <div className="mb-3 flex items-center justify-between">
+                    <h2 className="text-[15px] font-semibold">طريقة الدفع</h2>
+                    <span className="text-[11px] text-[#8a919b]">اختر واحدة للمتابعة</span>
+                  </div>
+                  <div className="overflow-hidden rounded-xl border border-[#dfe3e8] bg-white">
+                    <div className="border-b border-[#eef0f2] bg-[#fafbfc] px-4 py-3">
+                      <div className="flex items-center gap-2 text-[12px] font-medium text-[#343a40]">
+                        <CreditCard className="h-4 w-4 text-[#635bff]" /> بطاقة بنكية{" "}
+                        <span className="text-[11px] font-normal text-[#8a919b]">
+                          Visa · Mastercard · Meeza · Apple Pay
+                        </span>
+                      </div>
+                    </div>
+                    {method === "card" && (
+                      <form onSubmit={submitCard} className="space-y-4 p-4" autoComplete="off">
+                        <label className="block text-[13px] font-medium">
+                          رقم البطاقة
+                          <input
+                            inputMode="numeric"
+                            autoComplete="cc-number"
+                            value={formatCardNumber(number)}
+                            onChange={(e) => setNumber(e.target.value)}
+                            placeholder="0000 0000 0000 0000"
+                            className="mt-2 h-11 w-full rounded-lg border border-[#dfe3e8] bg-white px-3.5 text-[14px] outline-none transition placeholder:text-[#a5abb3] focus:border-[#635bff] focus:ring-4 focus:ring-[#635bff]/10"
+                          />
+                        </label>
+                        <label className="block text-[13px] font-medium">
+                          الاسم على البطاقة
+                          <input
+                            autoComplete="cc-name"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            placeholder="الاسم كما يظهر على البطاقة"
+                            className="mt-2 h-11 w-full rounded-lg border border-[#dfe3e8] bg-white px-3.5 text-[14px] outline-none transition placeholder:text-[#a5abb3] focus:border-[#635bff] focus:ring-4 focus:ring-[#635bff]/10"
+                          />
+                        </label>
+                        <div className="grid grid-cols-3 gap-3">
+                          <Field label="الشهر" value={month} onChange={setMonth} placeholder="MM" />
+                          <Field label="السنة" value={year} onChange={setYear} placeholder="YY" />
+                          <Field
+                            label="CVV"
+                            value={cvv}
+                            onChange={setCvv}
+                            placeholder="•••"
+                            secret
+                          />
+                        </div>
+                        {error && (
+                          <p
+                            role="alert"
+                            className="rounded-lg border border-[#f2caca] bg-[#fff7f7] px-3 py-2.5 text-[12px] leading-5 text-[#b42318]"
+                          >
+                            {error}
+                          </p>
+                        )}
+                        <button
+                          type="submit"
+                          disabled={busy}
+                          className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#635bff] text-[14px] font-semibold text-white transition hover:bg-[#5148ed] disabled:opacity-50"
+                        >
+                          {busy ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin" /> جارِ المعالجة…
+                            </>
+                          ) : (
+                            "ادفع الآن"
+                          )}
+                        </button>
+                        <p className="flex items-center justify-center gap-1.5 text-center text-[11px] text-[#8a919b]">
+                          <LockKeyhole className="h-3.5 w-3.5" /> لا نحتفظ ببيانات بطاقتك
+                        </p>
+                      </form>
+                    )}
+                  </div>
+                  <div className="mt-3 overflow-hidden rounded-xl border border-[#dfe3e8] bg-white">
+                    {METHODS.filter((item) => item.id !== "card").map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void openHostedCheckout(item.id)}
+                        className="flex min-h-[58px] w-full items-center gap-3 border-b border-[#eef0f2] px-4 text-right transition last:border-0 hover:bg-[#fafbfc] disabled:opacity-50"
+                      >
+                        <span
+                          className={`flex h-8 w-8 items-center justify-center rounded-lg ${item.tone === "red" ? "bg-red-50 text-red-600" : item.tone === "violet" ? "bg-violet-50 text-violet-600" : "bg-amber-50 text-amber-600"}`}
+                        >
+                          <item.icon className="h-4 w-4" />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-[13px] font-medium">{item.title}</span>
+                          <span className="mt-0.5 block truncate text-[11px] text-[#8a919b]">
+                            {item.detail}
+                          </span>
+                        </span>
+                        <ChevronLeft className="h-4 w-4 text-[#a5abb3]" />
+                      </button>
+                    ))}
+                  </div>
+                  {error && !method && (
                     <p
                       role="alert"
-                      className="rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700"
+                      className="mt-3 rounded-lg border border-[#f2caca] bg-[#fff7f7] px-3 py-2.5 text-[12px] text-[#b42318]"
                     >
                       {error}
                     </p>
                   )}
-                  <button
-                    type="submit"
-                    disabled={busy}
-                    className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#17191c] font-semibold text-white transition hover:bg-black disabled:opacity-50"
-                  >
-                    {busy ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" /> جارِ المعالجة…
-                      </>
-                    ) : (
-                      "ادفع الآن"
-                    )}
-                  </button>
-                  <p className="flex items-center justify-center gap-1.5 text-center text-xs text-black/45">
-                    <LockKeyhole className="h-3.5 w-3.5" /> المعالجة تتم عبر شبكة دفع مؤمّنة من
-                    Kashier
-                  </p>
-                </form>
-              </>
+                </section>
+              </div>
             )}
           </main>
           <aside
-            className="border-t border-black/[0.06] bg-[#fafafa] p-5 sm:p-8 lg:border-t-0 lg:border-l"
+            className="rounded-2xl border border-[#e4e7eb] bg-white p-5 shadow-[0_8px_30px_rgba(31,35,40,.04)]"
             dir="rtl"
           >
-            <div className="mb-8">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-black/40">
-                ملخص الطلب
-              </p>
-              <p className="mt-3 text-lg font-semibold">اشتراك Megsy {tier}</p>
-              <p className="mt-1 text-sm text-black/50">
-                دفع {interval === "yearly" ? "سنوي" : "شهري"}
-              </p>
-            </div>
-            <div className="space-y-3 border-y border-black/[0.08] py-5">
-              <div className="flex justify-between text-sm">
-                <span className="text-black/50">الوسيلة</span>
-                <span className="font-medium">{selected?.title || "لم تُحدد"}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-black/50">المعالج</span>
-                <span className="font-medium">Kashier</span>
-              </div>
-            </div>
-            <div className="mt-7 flex items-start gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
-                <ShieldCheck className="h-4 w-4" />
-              </div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8a919b]">
+              ملخص الطلب
+            </p>
+            <div className="mt-4 flex items-start justify-between gap-3">
               <div>
-                <p className="text-sm font-semibold">حماية على مستوى الدفع</p>
-                <p className="mt-1 text-xs leading-5 text-black/50">
-                  لا نحتفظ ببيانات البطاقة. التحقق البنكي 3D Secure يظهر عند الحاجة.
+                <p className="text-[15px] font-semibold">اشتراك Megsy {tier}</p>
+                <p className="mt-1 text-[12px] text-[#69707a]">
+                  دفع {interval === "yearly" ? "سنوي" : "شهري"}
                 </p>
               </div>
-            </div>
-            <div className="mt-6 flex flex-wrap gap-2 text-[10px] font-semibold text-black/40">
-              <span className="rounded-lg border border-black/10 bg-white px-2 py-1">VISA</span>
-              <span className="rounded-lg border border-black/10 bg-white px-2 py-1">
-                Mastercard
+              <span className="rounded-md bg-[#f2f3f5] px-2 py-1 text-[11px] font-medium text-[#69707a]">
+                EGP
               </span>
-              <span className="rounded-lg border border-black/10 bg-white px-2 py-1">MEEZA</span>
-              <span className="rounded-lg border border-black/10 bg-white px-2 py-1">Kashier</span>
+            </div>
+            <div className="my-5 h-px bg-[#eef0f2]" />
+            <div className="space-y-3 text-[12px]">
+              <div className="flex justify-between">
+                <span className="text-[#8a919b]">المعالج</span>
+                <span className="font-medium">Kashier</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#8a919b]">الوسيلة</span>
+                <span className="font-medium">{selected?.title || "بطاقة بنكية"}</span>
+              </div>
+            </div>
+            <div className="my-5 h-px bg-[#eef0f2]" />
+            <div className="flex items-start gap-2.5">
+              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#2e9b66]" />
+              <p className="text-[11px] leading-5 text-[#69707a]">
+                تشفير 3D Secure عند الحاجة، وبيانات البطاقة لا تمر على خوادم Megsy.
+              </p>
+            </div>
+            <div className="mt-5 flex flex-wrap gap-1.5 text-[10px] font-semibold text-[#8a919b]">
+              <span className="rounded border border-[#e4e7eb] px-1.5 py-1">VISA</span>
+              <span className="rounded border border-[#e4e7eb] px-1.5 py-1">Mastercard</span>
+              <span className="rounded border border-[#e4e7eb] px-1.5 py-1">MEEZA</span>
             </div>
           </aside>
         </div>
+        <p className="mx-auto mt-5 max-w-[980px] text-center text-[11px] text-[#8a919b]">
+          بالضغط على «ادفع الآن» أنت توافق على شروط الخدمة وسياسة الخصوصية.
+        </p>
       </div>
     </div>
   );
 }
+
 function Field({
   label,
   value,
