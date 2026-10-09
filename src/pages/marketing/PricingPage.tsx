@@ -12,7 +12,6 @@ import { Check, Loader2, ChevronDown, Menu, X, Plus, Minus } from "lucide-react"
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { invokeFunction } from "@/lib/supabaseFunction";
 import { WORKSPACE_PRODUCT_MAP, WORKSPACE_PLANS } from "@/lib/workspacePlans";
 import SEOHead from "@/components/common/SEOHead";
 import { Helmet } from "react-helmet-async";
@@ -23,7 +22,6 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import MobilePricingScreen from "@/components/mobile-showcase/MobilePricingScreen";
 import AppSidebar from "@/components/layout/AppSidebar";
 import { useSidebarCollapsed } from "@/hooks/useSidebarCollapsed";
-import type { Gateway } from "@/components/billing/PaymentGatewaySheet";
 import PlanCard from "@/pages/billing/referrals/PlanCard";
 import DesktopPricing from "./DesktopPricing";
 
@@ -36,15 +34,13 @@ import {
   getPlan,
   type PlanTier,
 } from "@/data/pricingData";
-import { markCheckoutOpened, INTRO_PRICE } from "@/lib/pricingOffers";
-import { openCheckoutUrl } from "@/lib/openCheckout";
+import { INTRO_PRICE } from "@/lib/pricingOffers";
 
 import { brandText, getZoneBrand } from "@/lib/zoneBrand";
 import { translateExactText, useUserLang } from "@/lib/authI18n";
 import CustomCardForm from "@/components/billing/CustomCardForm";
 
 const LandingFooter = lazy(() => import("@/components/landing/LandingFooter"));
-const PaymentGatewaySheet = lazy(() => import("@/components/billing/PaymentGatewaySheet"));
 
 const PRODUCT_MAP: Record<PlanTier, { monthly: string; yearly: string }> = WORKSPACE_PRODUCT_MAP;
 const pad2 = (n: number) => String(n).padStart(2, "0");
@@ -188,12 +184,6 @@ const PricingPage = () => {
   const [currentPlan, setCurrentPlan] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
-  const [gatewaySheet, setGatewaySheet] = useState<{
-    tier: PlanTier;
-    interval: "monthly" | "yearly";
-    trial: boolean;
-  } | null>(null);
-  const [gatewayLoading, setGatewayLoading] = useState<Gateway | null>(null);
   const [customCard, setCustomCard] = useState<{
     tier: PlanTier;
     interval: "monthly" | "yearly";
@@ -304,69 +294,6 @@ const PricingPage = () => {
     setCustomCard({ tier, interval });
   };
 
-  const runCheckout = async (
-    gateway: Gateway,
-    ctx?: { tier: PlanTier; interval: "monthly" | "yearly"; trial: boolean },
-  ) => {
-    const target = ctx ?? gatewaySheet;
-    if (!target) return;
-    const { tier, interval, trial } = target;
-    setGatewayLoading(gateway);
-    setLoadingTier(tier);
-
-    try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        toast.error("Please sign in again to continue.");
-        navigate("/auth?redirect=/pricing");
-        return;
-      }
-
-      // Both card and wallet options are handled by Kashier worldwide.
-      const method = gateway === "wallets" ? "wallet" : "card";
-      const { data, error } = await invokeFunction("kashier-checkout", {
-        body: {
-          kind: "checkout",
-          tier,
-          interval,
-          trial: false,
-          free_trial: false,
-          provider: "kashier",
-          // The first-month offer is always the fixed $7 intro product.
-          // Win-back pricing is intentionally disabled for this CTA.
-          winback: false,
-          method,
-          display: "en",
-        },
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
-
-      if (error) {
-        const msg = (error as any)?.message?.toLowerCase?.() || "";
-        if (msg.includes("unauthorized") || msg.includes("401") || msg.includes("jwt")) {
-          await supabase.auth.signOut().catch(() => {});
-          toast.error("Your session expired. Please sign in again.");
-          navigate("/auth?redirect=/pricing");
-          return;
-        }
-        throw error;
-      }
-      const checkoutUrl = data?.url || data?.checkout_url;
-      if (checkoutUrl) {
-        markCheckoutOpened(interval);
-        openCheckoutUrl(checkoutUrl);
-      } else throw new Error(data?.error || "Checkout failed");
-    } catch (e: any) {
-      toast.error(e?.message || "Failed to open checkout. Please try again.");
-    } finally {
-      setGatewayLoading(null);
-      setLoadingTier(null);
-      setGatewaySheet(null);
-    }
-  };
-
   const scrollTo = (id: string) => {
     if (id.startsWith("#")) {
       document.querySelector(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -401,20 +328,20 @@ const PricingPage = () => {
           />
         </div>
         <div className={isMobile ? "" : "min-h-[100dvh] bg-background"}>
-        <div className={isMobile ? "" : "mx-auto w-full max-w-[480px] [transform:translateZ(0)]"}>
-        <MobilePricingScreen
-            isYearly={isYearly}
-            onToggleYearly={setIsYearly}
-            loadingTier={loadingTier}
-            onSubscribe={(tier, opts) =>
-              handleSubscribe(tier, {
-                interval: isYearly ? "yearly" : "monthly",
-                trial: opts?.trial === true,
-              })
-            }
-            onMenuClick={() => setMobileOpen(true)}
-          />
-        </div>
+          <div className={isMobile ? "" : "mx-auto w-full max-w-[480px] [transform:translateZ(0)]"}>
+            <MobilePricingScreen
+              isYearly={isYearly}
+              onToggleYearly={setIsYearly}
+              loadingTier={loadingTier}
+              onSubscribe={(tier, opts) =>
+                handleSubscribe(tier, {
+                  interval: isYearly ? "yearly" : "monthly",
+                  trial: opts?.trial === true,
+                })
+              }
+              onMenuClick={() => setMobileOpen(true)}
+            />
+          </div>
         </div>
         <Suspense fallback={null}>
           {customCard && (
@@ -426,16 +353,6 @@ const PricingPage = () => {
                 setCustomCard(null);
                 setLoadingTier(null);
               }}
-            />
-          )}
-          {gatewaySheet && (
-            <PaymentGatewaySheet
-              open={!!gatewaySheet}
-              onClose={() => setGatewaySheet(null)}
-              onSelect={runCheckout}
-              loading={gatewayLoading}
-              options={["local", "wallets"]}
-              labels={{ local: "Card · Kashier", wallets: "Wallet · Kashier" }}
             />
           )}
         </Suspense>
@@ -489,39 +406,25 @@ const PricingPage = () => {
                 setIsYearly={setIsYearly}
                 loadingTier={loadingTier}
                 currentPlan={currentPlan}
-                onSubscribe={(tier) => handleSubscribe(tier, { interval: isYearly ? "yearly" : "monthly", trial: false })}
+                onSubscribe={(tier) =>
+                  handleSubscribe(tier, { interval: isYearly ? "yearly" : "monthly", trial: false })
+                }
               />
               {settled && (
                 <Suspense fallback={null}>
                   <LandingFooter />
                 </Suspense>
               )}
-              {customCard && (
-                <CustomCardForm
-                  open
-                  tier={customCard.tier}
-                  interval={customCard.interval}
-                  onClose={() => {
-                    setCustomCard(null);
-                    setLoadingTier(null);
-                  }}
-                />
-              )}
-              {gatewaySheet !== null && (
+              {customCard !== null && (
                 <Suspense fallback={null}>
-                  <PaymentGatewaySheet
+                  <CustomCardForm
                     open
+                    tier={customCard.tier}
+                    interval={customCard.interval}
                     onClose={() => {
-                      if (gatewayLoading) return;
-                      setGatewaySheet(null);
+                      setCustomCard(null);
                       setLoadingTier(null);
                     }}
-                    onSelect={runCheckout}
-                    loading={gatewayLoading}
-                    options={["local", "wallets"]}
-                    labels={{ local: "Card · Kashier", wallets: "Wallet · Kashier" }}
-                    title="Choose payment method"
-                    subtitle="Pay with Kashier."
                   />
                 </Suspense>
               )}

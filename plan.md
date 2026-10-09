@@ -1,21 +1,28 @@
-# خطة تحويل الدفع إلى Custom Card Form
+# خطة الدفع وتجربة checkout
 
 ## الهدف
-إبقاء المستخدم داخل موقع Megsy أثناء إدخال بيانات البطاقة والدفع، مع استخدام Kashier Direct API وعدم استخدام Hosted Checkout.
+
+تقديم صفحة دفع كاملة داخل Megsy، بتصميم نظيف مستوحى من Stripe وApple، بحيث يكتب المستخدم بيانات البطاقة داخل واجهة Megsy نفسها. لا توجد تحويلات إلى صفحات Kashier أو iframes؛ الاستثناء الوحيد هو صفحة 3-D Secure التي يفتحها البنك عند الحاجة.
 
 ## التنفيذ
-- إضافة واجهة بطاقة مخصصة داخل صفحة الأسعار، مع منع حفظ أو تسجيل رقم البطاقة وCVV.
-- إنشاء طلب دفع آمن عبر Supabase Edge Function مع HMAC Payment API Key.
-- إرسال بيانات البطاقة إلى Kashier Direct API فقط إذا كان تدفق المتصفح مسموحًا رسميًا، وإلا إيقاف الإطلاق وعدم تمرير البطاقة عبر خادمنا.
-- عرض 3-D Secure داخل نافذة داخل الموقع عند الحاجة.
-- الاعتماد على Webhook موقّع لتأكيد الدفع قبل تفعيل الرصيد أو الاشتراك.
-- استخدام Test Mode في النشر التجريبي، دون أي مفاتيح Live في المستودع.
+
+- إنشاء order موقّت من `supabase/functions/kashier-direct-order` مع hash محسوب باستخدام Payment API Key الخاص بـ Kashier live.
+- إرسال بيانات البطاقة مباشرة من المتصفح إلى `https://fep.kashier.io/v3/orders/`، دون مرور PAN أو CVV عبر Supabase أو خادم Megsy.
+- تشغيل `enable3DS: true` و`newPaymentUI: true`، وعرض `authentication.redirectUrl` فقط عند طلب التحقق البنكي.
+- إرسال `serverWebhook` و`merchantRedirect` في المستوى الصحيح من طلب Direct API، ومعالجة Webhook قبل تفعيل الاشتراك أو الرصيد.
+- استخدام `card,wallet,bnpl` فقط في مسارات Kashier التي تدعم قائمة طرق؛ استبعاد `bank_installments` وعدم استخدام trial.
+
+## التصميم
+
+صفحة checkout كاملة داخل Megsy بخلفية رمادية فاتحة، بطاقة بيضاء واسعة، حدود هادئة، نص فحمي، ولمسة بنفسجية/خضراء للحالة والثقة. العناوين كبيرة ومختصرة، RTL أصيل، والرسائل توضح أن بيانات البطاقة لا تُحفظ لدينا. التفاعل مباشر: إدخال، إرسال، ثم 3DS فقط عند الحاجة.
 
 ## بنية المشروع
-- `src/components/billing/CustomCardForm.tsx`: فورم البطاقة وحالات الدفع.
-- `src/pages/marketing/PricingPage.tsx`: فتح الفورم بدل Hosted Checkout.
-- `supabase/functions/kashier-direct-pay/index.ts`: إنشاء hash واستدعاء Direct API من الخلفية فقط للبيانات غير الحساسة.
+
+- `src/components/billing/CustomCardForm.tsx`: فورم البطاقة الكامل، التحقق المحلي، الإرسال المباشر إلى FEP، و3DS.
+- `src/pages/marketing/PricingPage.tsx`: فتح الفورم داخل صفحة الأسعار دون hosted checkout.
+- `supabase/functions/kashier-direct-order/index.ts`: تسعير الطلب live، إنشاء order، وحساب hash دون استقبال بيانات البطاقة.
 - `supabase/functions/kashier-webhook/index.ts`: التأكيد النهائي وتفعيل الطلب.
 
 ## قرار أمني
-لا يتم تمرير PAN أو CVV إلى خادمنا. إذا لم يسمح Kashier بتدفق مباشر آمن من المتصفح أو Secure Fields، سيتم إيقاف الجزء الذي يتطلب ذلك بدل تخفيض الأمان.
+
+لا يتم تمرير PAN أو CVV إلى خادم Megsy، ولا يتم تسجيلهما أو تخزينهما. يجب ضبط `KASHIER_MERCHANT_ID` و`KASHIER_PAYMENT_API_KEY` كأسرار Supabase live، مع التأكد أن Merchant live مفعّل في لوحة Kashier.
