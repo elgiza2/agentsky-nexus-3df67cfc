@@ -1203,6 +1203,7 @@ const ChatPage = () => {
             row.value === "up" ? true : row.value === "down" ? false : null;
         });
       }
+      if (!isCurrentRequest()) return;
       const fresh = msgs
         .map((m: any) => rowToMessage(m, senderMap, (conv as any)?.mode, feedbackByMessageId))
         .filter(Boolean) as Message[];
@@ -1231,7 +1232,9 @@ const ChatPage = () => {
       });
     }
     // Load members so sender names/avatars render correctly.
-    setMembers(await loadConversationMembers(id));
+    const loadedMembers = await loadConversationMembers(id);
+    if (!isCurrentRequest()) return;
+    setMembers(loadedMembers);
     setLoadingMessages(false);
   };
 
