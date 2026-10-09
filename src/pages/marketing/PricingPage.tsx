@@ -41,6 +41,7 @@ import { openCheckoutUrl } from "@/lib/openCheckout";
 
 import { brandText, getZoneBrand } from "@/lib/zoneBrand";
 import { translateExactText, useUserLang } from "@/lib/authI18n";
+import CustomCardForm from "@/components/billing/CustomCardForm";
 
 const LandingFooter = lazy(() => import("@/components/landing/LandingFooter"));
 const PaymentGatewaySheet = lazy(() => import("@/components/billing/PaymentGatewaySheet"));
@@ -193,6 +194,10 @@ const PricingPage = () => {
     trial: boolean;
   } | null>(null);
   const [gatewayLoading, setGatewayLoading] = useState<Gateway | null>(null);
+  const [customCard, setCustomCard] = useState<{
+    tier: PlanTier;
+    interval: "monthly" | "yearly";
+  } | null>(null);
   const [settled, setSettled] = useState(false);
 
   const BRAND = getZoneBrand();
@@ -296,11 +301,7 @@ const PricingPage = () => {
       return;
     }
 
-    // Kashier is the single payment provider for every country and currency.
-    // Start the primary CTA directly with card checkout. The old lazy-loaded
-    // gateway picker could render no feedback when its chunk was unavailable,
-    // making the payment button appear unresponsive in production.
-    void runCheckout("local", { tier, interval, trial: false });
+    setCustomCard({ tier, interval });
   };
 
   const runCheckout = async (
@@ -416,6 +417,17 @@ const PricingPage = () => {
         </div>
         </div>
         <Suspense fallback={null}>
+          {customCard && (
+            <CustomCardForm
+              open
+              tier={customCard.tier}
+              interval={customCard.interval}
+              onClose={() => {
+                setCustomCard(null);
+                setLoadingTier(null);
+              }}
+            />
+          )}
           {gatewaySheet && (
             <PaymentGatewaySheet
               open={!!gatewaySheet}
@@ -483,6 +495,17 @@ const PricingPage = () => {
                 <Suspense fallback={null}>
                   <LandingFooter />
                 </Suspense>
+              )}
+              {customCard && (
+                <CustomCardForm
+                  open
+                  tier={customCard.tier}
+                  interval={customCard.interval}
+                  onClose={() => {
+                    setCustomCard(null);
+                    setLoadingTier(null);
+                  }}
+                />
               )}
               {gatewaySheet !== null && (
                 <Suspense fallback={null}>
