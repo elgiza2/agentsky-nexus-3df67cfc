@@ -69,6 +69,28 @@ class SafeLearnCardBoundary extends ReactComponent<{ children: React.ReactNode }
     return this.props.children;
   }
 }
+
+// Older or interrupted assistant replies can contain malformed Markdown/HTML.
+// Keep one bad reply readable as plain text instead of crashing the whole chat.
+class SafeMarkdownBoundary extends ReactComponent<
+  { children: React.ReactNode; fallback: string },
+  { failed: boolean }
+> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  componentDidCatch(error: Error) {
+    console.warn("[ChatMessage] Markdown render fallback", error.message);
+  }
+  render() {
+    return this.state.failed ? (
+      <div className="whitespace-pre-wrap">{this.props.fallback}</div>
+    ) : (
+      this.props.children
+    );
+  }
+}
 const StepFlowCards = lazy(() => import("@/components/chat/StepFlowCards"));
 import { parseSteps } from "@/components/chat/StepFlowCards";
 // CodeBlock pulls in react-syntax-highlighter + Prism (~500 KB). Load it
@@ -434,6 +456,7 @@ const MarkdownRenderer = ({
   const deferredContent = useDeferredValue(content);
   const katexPlugin = useKatexPlugin(hasMath(deferredContent));
   return (
+  <SafeMarkdownBoundary fallback={deferredContent}>
   <ReactMarkdown
     remarkPlugins={[remarkGfm, remarkBreaks, remarkMath, remarkCleanResearchLayout]}
     // SECURITY: rehypeRaw parses raw HTML from markdown; without a sanitizer
@@ -618,6 +641,7 @@ const MarkdownRenderer = ({
   >
     {formatRawUrls(deferredContent)}
   </ReactMarkdown>
+  </SafeMarkdownBoundary>
   );
 };
 
@@ -739,6 +763,7 @@ const UserMarkdown = ({
 }) => {
   const katexPlugin = useKatexPlugin(hasMath(content));
   return (
+  <SafeMarkdownBoundary fallback={content}>
   <ReactMarkdown
     remarkPlugins={[remarkGfm, remarkBreaks, remarkMath]}
     rehypePlugins={katexPlugin ? [katexPlugin] : []}
@@ -797,6 +822,7 @@ const UserMarkdown = ({
   >
     {content}
   </ReactMarkdown>
+  </SafeMarkdownBoundary>
   );
 };
 

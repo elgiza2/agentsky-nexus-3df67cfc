@@ -27,6 +27,7 @@ interface NewChatArgs {
   setSelectedModel: (v: null) => void;
   setSelectedAgent: (v: null) => void;
   isSubmittingRef: React.MutableRefObject<boolean>;
+  onConversationReset?: () => void;
   onAgentSkyReset?: () => void;
 }
 
@@ -39,6 +40,10 @@ interface NewChatArgs {
  */
 export function useChatNewChat(args: NewChatArgs) {
   return useCallback(() => {
+    // Invalidate any conversation fetch that is still resolving. Without this,
+    // opening a new chat while an older conversation is loading lets the old
+    // response put its messages back into the new-chat surface.
+    args.onConversationReset?.();
     args.slidesGenerationTokenRef.current += 1;
     Object.values(args.slidesTimeoutsRef.current).forEach((timer) => window.clearTimeout(timer));
     args.slidesTimeoutsRef.current = {};

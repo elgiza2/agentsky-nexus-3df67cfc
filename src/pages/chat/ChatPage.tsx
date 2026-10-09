@@ -234,6 +234,7 @@ import { DOCS_STATUS_FALLBACKS } from "./chatUtils";
 const ChatPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const conversationLoadRequestRef = useRef(0);
 
   // Warm the Pricing route immediately after the chat surface mounts. The
   // pricing star is a top-level chat action, so waiting for requestIdleCallback
@@ -1126,6 +1127,8 @@ const ChatPage = () => {
   );
 
   const loadConversation = async (id: string) => {
+    const requestId = ++conversationLoadRequestRef.current;
+    const isCurrentRequest = () => conversationLoadRequestRef.current === requestId;
     setConversationId(id);
     resetToolUi();
     setPendingQuestions([]);
@@ -1152,6 +1155,7 @@ const ChatPage = () => {
       .select("title, is_shared, share_id, is_pinned, mode, user_id")
       .eq("id", id)
       .single();
+    if (!isCurrentRequest()) return;
     if (conv) {
       setConversationTitle(conv.title || "Untitled");
       setIsShared(conv.is_shared || false);
@@ -1173,6 +1177,7 @@ const ChatPage = () => {
       .select("*")
       .eq("conversation_id", id)
       .order("created_at", { ascending: true });
+    if (!isCurrentRequest()) return;
     if (msgs) {
       const senderIds = Array.from(new Set(msgs.map((m: any) => m.user_id).filter(Boolean)));
       const senderMap: Record<string, { name: string | null; avatar: string | null }> = {};
@@ -2464,6 +2469,9 @@ const ChatPage = () => {
     setSelectedModel,
     setSelectedAgent,
     isSubmittingRef,
+    onConversationReset: () => {
+      conversationLoadRequestRef.current += 1;
+    },
     onAgentSkyReset: () => {
       activeAgentSkySessionRef.current = null;
       queuedAgentMessagesRef.current = [];

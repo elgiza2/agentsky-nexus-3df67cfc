@@ -21,9 +21,15 @@ export function rowToMessage(
   convMode: ConvMode,
   feedbackByMessageId: Record<string, boolean | null> = {},
 ): Message | null {
+  if (!row || (row.role !== "user" && row.role !== "assistant")) return null;
   const role = row.role as "user" | "assistant";
-  const content = role === "assistant" ? sanitizeLeakedToolText(row.content) : row.content;
-  const meta = (row.metadata || {}) as any;
+  // Historical rows can contain null/non-string content after an interrupted
+  // stream. Keep the transcript renderer's contract strict so one bad row
+  // cannot crash the whole chat route.
+  const rawContent =
+    typeof row.content === "string" ? row.content : row.content == null ? "" : String(row.content);
+  const content = role === "assistant" ? sanitizeLeakedToolText(rawContent) : rawContent;
+  const meta = row.metadata && typeof row.metadata === "object" ? (row.metadata as any) : {};
   const hasMedia = !!meta.mediaPlan;
   // Detect interrupted assistant streams: empty content but no async job/media pending.
   // A pending docs/slides/research job is only considered "still running" if it was
@@ -130,4 +136,3 @@ export function rowToMessage(
     interrupted: interrupted || undefined,
   } as Message;
 }
-
