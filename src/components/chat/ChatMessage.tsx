@@ -337,6 +337,21 @@ const formatRawUrls = (text: string): string => {
     .join("");
 };
 
+/**
+ * Models occasionally return escaped emphasis markers (`\*\*Title\*\*`) or
+ * put whitespace inside the marker (`** Title **`). CommonMark treats both
+ * forms as literal text, leaving the asterisks visible in the chat. Normalize
+ * only paired, single-line bold spans before handing content to react-markdown.
+ */
+const normalizeBoldMarkdown = (text: string): string =>
+  text
+    .replace(/\\\*\\\*/g, "**")
+    .replace(/\\_\\_/g, "__")
+    .replace(/\*\*([^\n]*?)\*\*/g, (_match, inner: string) => {
+      const trimmed = inner.trim();
+      return trimmed ? `**${trimmed}**` : "";
+    });
+
 const researchHeadingLabels = new Set([
   "Search the web",
   "Overview",
@@ -639,7 +654,7 @@ const MarkdownRenderer = ({
       ),
     }}
   >
-    {formatRawUrls(deferredContent)}
+    {formatRawUrls(normalizeBoldMarkdown(deferredContent))}
   </ReactMarkdown>
   </SafeMarkdownBoundary>
   );
@@ -820,7 +835,7 @@ const UserMarkdown = ({
       ),
     }}
   >
-    {content}
+    {normalizeBoldMarkdown(content)}
   </ReactMarkdown>
   </SafeMarkdownBoundary>
   );
