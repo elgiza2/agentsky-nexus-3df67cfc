@@ -106,8 +106,8 @@ Deno.serve(async (request) => {
   // ---- Kashier (Egypt: local cards + mobile wallets) ------------------------
   const method = String(payload.method ?? "card").toLowerCase();
   const display = payload.display === "ar" ? "ar" : "en";
-  if (method !== "card" && method !== "wallet")
-    return json({ error: "invalid payment method" }, 400);
+  const allowedMethods = new Set(["card", "wallet", "bank_installments", "bnpl"]);
+  if (!allowedMethods.has(method)) return json({ error: "invalid payment method" }, 400);
 
   // Legacy callers still send a raw sku; new callers send tier + interval.
   const legacySku = String(payload.sku ?? "").trim();
@@ -123,7 +123,11 @@ Deno.serve(async (request) => {
   }
   const isPack = row?.tier === "credits";
   if (isPack) {
-    const { data: prof } = await admin.from("profiles").select("plan").eq("id", user.id).maybeSingle();
+    const { data: prof } = await admin
+      .from("profiles")
+      .select("plan")
+      .eq("id", user.id)
+      .maybeSingle();
     if (String((prof as any)?.plan ?? "free") === "free")
       return json({ error: "Credit packs are available for Pro members." }, 403);
   }
@@ -184,7 +188,8 @@ Deno.serve(async (request) => {
     serverWebhook: webhookUrl,
     display,
     // Kashier's hosted page expects the official comma-separated method list.
-    allowedMethods: "card,wallet",
+    allowedMethods: "card,bank_installments,wallet,bnpl",
+    defaultMethod: method,
   });
 
   return json({

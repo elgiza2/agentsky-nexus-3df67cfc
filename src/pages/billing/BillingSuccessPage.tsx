@@ -1,5 +1,18 @@
-/** @doc Post-checkout status page — matches the glass "+" menu style. */
+/** @doc Payment status page — Apple-like clarity with Stripe-style status hierarchy. */
 import { useEffect, useMemo, useState } from "react";
+import {
+  Check,
+  CheckCircle2,
+  Clock3,
+  CreditCard,
+  ExternalLink,
+  Home,
+  Loader2,
+  Mail,
+  RefreshCw,
+  ShieldCheck,
+  XCircle,
+} from "lucide-react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { m as motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,36 +20,24 @@ import SecondMonthOfferCard from "@/components/billing/SecondMonthOfferCard";
 import { clearAbandonedCheckout } from "@/lib/pricingOffers";
 import { trackTikTokCompletePayment } from "@/lib/analytics/tiktokPixel";
 import { markIntroTrialUsed } from "@/lib/introTrial";
-
-const mobileFont =
-  "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif";
-
-const glass = {
-  background: "rgba(0, 0, 0, 0.32)",
-  backdropFilter: "blur(22px) saturate(160%)",
-  WebkitBackdropFilter: "blur(22px) saturate(160%)",
-  boxShadow:
-    "inset 0 1px 1px rgba(255,255,255,0.16), 0 0 0 1px var(--overlay-white-18), 0 22px 60px -18px rgba(0,0,0,0.7)",
-};
+import { useUserLang } from "@/lib/authI18n";
 
 const BillingSuccessPage = () => {
   const [params] = useSearchParams();
   const navigate = useNavigate();
+  const lang = useUserLang();
+  const ar = String(lang).startsWith("ar");
   const [status, setStatus] = useState<"loading" | "success" | "pending" | "failed">("loading");
   const [details, setDetails] = useState<any>(null);
   const [creating, setCreating] = useState(false);
-
-  // A paid checkout cancels the come-back ($5) offer.
+  const t = (en: string, arText: string) => (ar ? arText : en);
   useEffect(() => {
     if (status === "success") {
       clearAbandonedCheckout();
       if (details?.is_trial) void markIntroTrialUsed();
     }
   }, [details, status]);
-
   useEffect(() => {
-    // Only a payment the database confirmed as paid reaches here.
-    // The tracker also deduplicates refreshes and browser/server copies.
     if (status !== "success" || !details?.payment_id) return;
     trackTikTokCompletePayment({
       paymentId: details.payment_id,
@@ -45,258 +46,252 @@ const BillingSuccessPage = () => {
       productName: details.product_name,
     });
   }, [details, status]);
-
   useEffect(() => {
     const provider = params.get("provider");
     const kashierOrder = params.get("order");
-
     if (provider === "kashier" && kashierOrder) {
-      // Forward Kashier's signed redirect to the server in the background, then
-      // send the buyer straight into the app — activation happens server-side.
       const redirectParams: Record<string, string> = {};
       params.forEach((value, key) => {
         if (key !== "provider" && key !== "order") redirectParams[key] = value;
       });
       const paymentStatus = (redirectParams.paymentStatus || "").toUpperCase();
-      if (redirectParams.signature) {
+      if (redirectParams.signature)
         void supabase.functions
           .invoke("kashier-webhook", { body: { type: "redirect", params: redirectParams } })
           .catch(() => undefined);
-      }
       clearAbandonedCheckout();
-      if (paymentStatus && paymentStatus !== "SUCCESS") {
-        navigate("/pricing", { replace: true });
-      } else {
-        navigate("/?payment=success", { replace: true });
+      if (paymentStatus && paymentStatus !== "SUCCESS") setStatus("failed");
+      else {
+        setDetails({
+          payment_id: kashierOrder,
+          product_name: "Megsy subscription",
+          currency: "EGP",
+        });
+        setStatus("success");
       }
       return;
     }
-    if (false as boolean) {
-      let cancelled = false;
-      const poll = async (attempt = 0) => {
-        if (cancelled) return;
-        const { data } = await supabase
-          .from("kashier_orders")
-          .select("status, amount, currency, credits, plan, method, raw")
-          .eq("order_id", kashierOrder)
-          .maybeSingle();
-        if (data) {
-          setDetails({
-            product_name: data.plan ? `${data.plan} Plan` : `${data.credits} MC top-up`,
-            amount: Number(data.amount) * 100,
-            currency: data.currency,
-            payment_id: kashierOrder,
-            is_subscription: Boolean(data.plan),
-            is_trial: isKashierTrial(data.raw),
-          });
-          if (data.status === "paid") return setStatus("success");
-          if (data.status === "failed") return setStatus("failed");
-        }
-        if (attempt < 20) {
-          setStatus("pending");
-          setTimeout(() => poll(attempt + 1), 2000);
-        } else {
-          setStatus("pending");
-        }
-      };
-      poll();
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    // Kashier is the only payment provider. Unknown/legacy return params
-    // are intentionally treated as failed instead of being looked up elsewhere.
     setStatus("failed");
   }, [params]);
-
-  function isKashierTrial(raw: unknown): boolean {
-    if (!raw || typeof raw !== "object") return false;
-    const value = raw as { trial_days?: unknown; sku?: unknown };
-    return value.trial_days === 3 || value.sku === "plan_pro_m_trial";
-  }
-
   const handleSuccessContinue = async () => {
     setCreating(true);
     const pendingWorkspaceName = sessionStorage.getItem("megsy_pending_workspace_name");
     const pendingWorkspacePlan = sessionStorage.getItem("megsy_pending_workspace_plan");
-
     if (pendingWorkspaceName && pendingWorkspacePlan) {
       const { data, error } = await supabase.rpc("create_workspace", {
         p_name: pendingWorkspaceName,
         p_plan: pendingWorkspacePlan,
       } as never);
-
       if (!error && data) {
         const wsId = (data as any).id;
         try {
           const {
             data: { user },
           } = await supabase.auth.getUser();
-          if (user) {
+          if (user)
             await supabase
               .from("profiles")
               .update({ active_workspace_id: wsId } as any)
               .eq("id", user.id);
-          }
-        } catch {
-          /* ignore */
-        }
+        } catch {}
         try {
           sessionStorage.removeItem("megsy_pending_workspace_name");
-        } catch {}
-        try {
           sessionStorage.removeItem("megsy_pending_workspace_plan");
         } catch {}
-        navigate(`/settings/workspaces/${(data as any).id}`);
+        navigate(`/settings/workspaces/${wsId}`);
         return;
       }
     }
     navigate("/");
   };
-
-  const amountFormatted =
-    details?.amount != null
-      ? `${(details.amount / 100).toFixed(2)} ${(details.currency || "USD").toUpperCase()}`
-      : null;
-
-  const title = useMemo(() => {
-    if (status === "loading") return "Confirming payment";
-    if (status === "success") return "Payment successful";
-    if (status === "pending") return "Processing payment";
-    return "Payment failed";
-  }, [status]);
-
-  const subtitle = useMemo(() => {
-    if (status === "loading") return "Hang tight, this only takes a moment.";
-    if (status === "success") {
-      return details?.product_name
-        ? `Your ${details.product_name} is now active.`
-        : "Your purchase is complete.";
-    }
-    if (status === "pending") return "This usually finishes within a minute.";
-    return "If you were charged, the amount will be refunded automatically.";
-  }, [status, details]);
-
+  const copy = useMemo(
+    () => ({
+      title:
+        status === "loading"
+          ? t("Confirming payment", "بنأكد الدفع")
+          : status === "success"
+            ? t("Payment successful", "تم الدفع بنجاح")
+            : status === "pending"
+              ? t("Payment processing", "الدفع قيد المعالجة")
+              : t("Payment declined", "لم يتم الدفع"),
+      subtitle:
+        status === "loading"
+          ? t("Hang tight, this only takes a moment.", "لحظات وهنأكد العملية.")
+          : status === "success"
+            ? t("Your subscription is ready to use.", "اشتراكك جاهز للاستخدام.")
+            : status === "pending"
+              ? t("Your bank is still confirming the transaction.", "البنك ما زال بيأكد العملية.")
+              : t(
+                  "The payment was not completed. No subscription was activated.",
+                  "العملية لم تكتمل، ولم يتم تفعيل الاشتراك.",
+                ),
+    }),
+    [status, ar],
+  );
+  const Icon =
+    status === "success"
+      ? CheckCircle2
+      : status === "failed"
+        ? XCircle
+        : status === "pending"
+          ? Clock3
+          : Loader2;
+  const iconTone =
+    status === "success"
+      ? "text-emerald-600 bg-emerald-50"
+      : status === "failed"
+        ? "text-red-600 bg-red-50"
+        : status === "pending"
+          ? "text-amber-600 bg-amber-50"
+          : "text-[#635bff] bg-[#635bff]/10";
   return (
     <div
-      dir="ltr"
-      className="relative min-h-dvh flex items-center justify-center p-4 sm:p-6 overflow-hidden bg-background"
+      dir={ar ? "rtl" : "ltr"}
+      className="min-h-dvh bg-[#f4f6f8] px-4 py-8 text-[#17191c] sm:px-6 sm:py-14"
     >
-      <motion.div
-        initial={{ opacity: 0, y: 10, scale: 0.985 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.16, ease: [0.22, 0.9, 0.3, 1] }}
-        className="w-full max-w-md rounded-[28px] p-6 sm:p-8 flex flex-col text-center"
-        style={{ ...glass, fontFamily: mobileFont, color: "hsl(var(--brand-parchment))" }}
-      >
-        <div className="px-1 pb-5">
-          <p className="text-[15px] font-medium text-foreground leading-tight">{title}</p>
-          <p className="text-[13px] text-foreground/55 mt-1 leading-snug">{subtitle}</p>
-        </div>
-
-        {(amountFormatted || details?.product_name) && status !== "failed" && (
-          <div className="mb-5 rounded-2xl border border-foreground/10 bg-foreground/[0.03] p-4 text-left">
-            {details?.product_name && (
-              <div className="flex items-center justify-between text-[13px]">
-                <span className="text-foreground/55">Plan</span>
-                <span className="font-medium text-foreground">{details.product_name}</span>
-              </div>
-            )}
-            {amountFormatted && (
-              <div className="flex items-center justify-between text-[13px] mt-2">
-                <span className="text-foreground/55">Amount</span>
-                <span className="font-medium text-foreground">{amountFormatted}</span>
-              </div>
-            )}
-            <div className="flex items-center justify-between text-[13px] mt-2">
-              <span className="text-foreground/55">Status</span>
-              <span
-                className={`font-medium ${
-                  status === "success"
-                    ? "text-emerald-400"
-                    : status === "pending"
-                      ? "text-amber-400"
-                      : "text-foreground/70"
-                }`}
-              >
-                {status === "success" ? "Paid" : status === "pending" ? "Pending" : "Confirming"}
-              </span>
+      <div className="mx-auto w-full max-w-[720px]">
+        <header className="mb-8 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#17191c] text-white">
+              <span className="text-sm font-bold">m</span>
             </div>
+            <span className="text-sm font-semibold">Megsy</span>
           </div>
-        )}
-
-        {status === "success" && <SecondMonthOfferCard />}
-
-        <div className="flex flex-col gap-2">
-          {status === "success" && (
-            <>
-              <button
-                onClick={handleSuccessContinue}
-                disabled={creating}
-                className="w-full flex items-center justify-center border border-foreground/10 rounded-2xl bg-foreground/[0.07] px-4 py-3.5 text-[14px] font-medium text-foreground hover:bg-foreground/[0.10] active:bg-foreground/[0.14] transition disabled:opacity-40"
-              >
-                {creating ? "Setting up…" : "Continue to dashboard"}
-              </button>
-              <button
-                onClick={() => navigate("/settings/billing")}
-                className="w-full flex items-center justify-center border border-foreground/10 rounded-2xl bg-foreground/[0.03] px-4 py-3.5 text-[14px] font-medium text-foreground/70 hover:bg-foreground/[0.07] active:bg-foreground/[0.10] transition"
-              >
-                View invoice
-              </button>
-            </>
-          )}
-
-          {status === "pending" && (
-            <>
-              <button
-                onClick={() => window.location.reload()}
-                className="w-full flex items-center justify-center border border-foreground/10 rounded-2xl bg-foreground/[0.07] px-4 py-3.5 text-[14px] font-medium text-foreground hover:bg-foreground/[0.10] active:bg-foreground/[0.14] transition"
-              >
-                Refresh status
-              </button>
-              <button
-                onClick={() => navigate("/settings/billing")}
-                className="w-full flex items-center justify-center border border-foreground/10 rounded-2xl bg-foreground/[0.03] px-4 py-3.5 text-[14px] font-medium text-foreground/70 hover:bg-foreground/[0.07] active:bg-foreground/[0.10] transition"
-              >
-                View invoices
-              </button>
-            </>
-          )}
-
-          {status === "failed" && (
-            <>
-              <button
-                onClick={() => navigate("/pricing")}
-                className="w-full flex items-center justify-center border border-foreground/10 rounded-2xl bg-foreground/[0.07] px-4 py-3.5 text-[14px] font-medium text-foreground hover:bg-foreground/[0.10] active:bg-foreground/[0.14] transition"
-              >
-                Back to pricing
-              </button>
-              <button
-                onClick={() => navigate("/")}
-                className="w-full flex items-center justify-center border border-foreground/10 rounded-2xl bg-foreground/[0.03] px-4 py-3.5 text-[14px] font-medium text-foreground/70 hover:bg-foreground/[0.07] active:bg-foreground/[0.10] transition"
-              >
-                Go home
-              </button>
-            </>
-          )}
-
-          {status === "loading" && (
-            <div className="flex items-center justify-center py-4">
-              <span className="w-5 h-5 border-2 border-foreground/25 border-t-foreground rounded-full animate-spin" />
+          <span className="flex items-center gap-1.5 text-xs text-black/45">
+            <ShieldCheck className="h-4 w-4" /> {t("Secure checkout", "دفع آمن")}
+          </span>
+        </header>
+        <motion.main
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.25 }}
+          className="overflow-hidden rounded-[30px] border border-black/[0.07] bg-white shadow-[0_24px_80px_rgba(15,23,42,.10)]"
+        >
+          <div className="p-6 text-center sm:p-10">
+            <div
+              className={`mx-auto flex h-20 w-20 items-center justify-center rounded-full ${iconTone}`}
+            >
+              <Icon className={`h-9 w-9 ${status === "loading" ? "animate-spin" : ""}`} />
+            </div>
+            <p className="mt-6 text-[11px] font-semibold uppercase tracking-[0.18em] text-black/40">
+              {status === "success"
+                ? t("Complete", "اكتملت العملية")
+                : t("Payment status", "حالة الدفع")}
+            </p>
+            <h1 className="mt-2 text-[30px] font-semibold tracking-[-0.045em] sm:text-[38px]">
+              {copy.title}
+            </h1>
+            <p className="mx-auto mt-3 max-w-md text-sm leading-7 text-black/55">{copy.subtitle}</p>
+          </div>
+          {status !== "failed" && status !== "loading" && (
+            <div className="mx-6 rounded-2xl border border-black/[0.07] bg-[#fafafa] p-4 sm:mx-10">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-black/60 shadow-sm">
+                  <CreditCard className="h-4 w-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold">
+                    {details?.product_name || t("Megsy subscription", "اشتراك Megsy")}
+                  </p>
+                  <p className="mt-1 text-xs text-black/45">
+                    {t("Processed by Kashier", "تمت المعالجة عبر Kashier")}
+                  </p>
+                </div>
+                <span
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${status === "success" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}
+                >
+                  {status === "success" ? t("Paid", "مدفوع") : t("Pending", "قيد المراجعة")}
+                </span>
+              </div>
             </div>
           )}
-        </div>
-
-        <p className="mt-5 text-[11.5px] text-foreground/65">
-          Need help?{" "}
-          <a href="mailto:support@megsyai.com" className="underline hover:text-foreground/70">
-            support@megsyai.com
-          </a>
+          {status === "success" && (
+            <div className="px-6 pt-5 sm:px-10">
+              <SecondMonthOfferCard />
+            </div>
+          )}
+          <div className="flex flex-col gap-2 p-6 sm:p-10 sm:pt-6">
+            {status === "success" && (
+              <>
+                <button
+                  onClick={handleSuccessContinue}
+                  disabled={creating}
+                  className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#17191c] px-4 text-sm font-semibold text-white transition hover:bg-black disabled:opacity-50"
+                >
+                  {creating ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Check className="h-4 w-4" />
+                  )}
+                  {creating
+                    ? t("Setting up…", "بنجهز حسابك…")
+                    : t("Continue to dashboard", "الانتقال للوحة التحكم")}
+                </button>
+                <button
+                  onClick={() => navigate("/settings/billing")}
+                  className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-black/10 bg-white px-4 text-sm font-medium text-black/65 transition hover:bg-black/[0.03]"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  {t("View billing", "عرض الفوترة")}
+                </button>
+              </>
+            )}
+            {status === "pending" && (
+              <>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#17191c] px-4 text-sm font-semibold text-white"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  {t("Refresh status", "تحديث الحالة")}
+                </button>
+                <button
+                  onClick={() => navigate("/settings/billing")}
+                  className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-black/10 bg-white px-4 text-sm font-medium text-black/65"
+                >
+                  {t("View billing", "عرض الفوترة")}
+                </button>
+              </>
+            )}
+            {status === "failed" && (
+              <>
+                <button
+                  onClick={() => navigate("/pricing")}
+                  className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#17191c] px-4 text-sm font-semibold text-white"
+                >
+                  <CreditCard className="h-4 w-4" />
+                  {t("Try another method", "جرّب وسيلة دفع أخرى")}
+                </button>
+                <button
+                  onClick={() => navigate("/")}
+                  className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-black/10 bg-white px-4 text-sm font-medium text-black/65"
+                >
+                  <Home className="h-4 w-4" />
+                  {t("Go home", "العودة للرئيسية")}
+                </button>
+              </>
+            )}
+            {status === "loading" && (
+              <div className="flex justify-center py-3">
+                <Loader2 className="h-5 w-5 animate-spin text-[#635bff]" />
+              </div>
+            )}
+            <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-xs text-black/40">
+              <Mail className="h-3.5 w-3.5" /> {t("Need help?", "محتاج مساعدة؟")}{" "}
+              <a href="mailto:support@megsyai.com" className="font-medium text-black/65 underline">
+                support@megsyai.com
+              </a>
+            </p>
+          </div>
+        </motion.main>
+        <p className="mt-5 text-center text-[11px] text-black/35">
+          {t(
+            "Your card details are handled securely by Kashier and never stored by Megsy.",
+            "بيانات بطاقتك تتم معالجتها بأمان عبر Kashier ولا يتم حفظها لدى Megsy.",
+          )}
         </p>
-      </motion.div>
+      </div>
     </div>
   );
 };
-
 export default BillingSuccessPage;
