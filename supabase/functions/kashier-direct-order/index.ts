@@ -7,6 +7,9 @@ Deno.serve(async (request) => {
   if (request.method === "OPTIONS") return new Response("ok", { headers });
   if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
   const token = (request.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
+  // Supabase gateway JWT verification is disabled for this function because
+  // some production browser sessions use a brokered auth token. The request
+  // is still authenticated here before any order is created.
   const { data: auth } = await admin.auth.getUser(token);
   if (!auth.user) return json({ error: "unauthorized" }, 401);
   let body: Record<string, unknown>;

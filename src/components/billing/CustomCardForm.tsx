@@ -126,7 +126,13 @@ export default function CustomCardForm({ open, tier, interval, onClose }: Props)
           newPaymentUI: true,
         }),
       });
-      const payload = (await response.json()) as PaymentResponse;
+      const rawResponse = await response.text();
+      let payload: PaymentResponse = {};
+      try { payload = JSON.parse(rawResponse) as PaymentResponse; } catch { /* provider may return plain text */ }
+      if (!response.ok) {
+        const providerMessage = payload.messages?.ar || payload.messages?.en || rawResponse;
+        throw new Error(providerMessage || `رفض مزود الدفع الطلب (${response.status}).`);
+      }
       const auth = payload.response?.authentication;
       if (auth?.redirectUrl && sameOrigin(auth.redirectUrl)) {
         setThreeDsUrl(auth.redirectUrl);
