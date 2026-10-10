@@ -3831,3 +3831,48 @@ html[data-theme="light"] main [class*="glass-card"] {
 .welcome-btn{background:var(--w-fg);color:var(--w-bg);font-size:15px;font-weight:500;border-radius:9999px;padding:13px 28px;transition:transform .2s}
 .welcome-btn:active{transform:scale(.97)}
 .welcome-scrim{background:linear-gradient(to bottom,rgba(14,13,12,.35) 0%,rgba(14,13,12,0) 30%,rgba(14,13,12,.55) 60%,rgba(14,13,12,.95) 100%)}
+
+
+/* Settings-language glass treatment for the + menu. */
+.mobile-plus-glass-menu {
+  background: hsl(var(--background) / 0.78) !important;
+  border: 1px solid hsl(var(--foreground) / 0.10) !important;
+  box-shadow: 0 -24px 70px -30px hsl(var(--foreground) / 0.45), inset 0 1px 0 hsl(var(--foreground) / 0.10) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(1.35) !important;
+  backdrop-filter: blur(28px) saturate(1.35) !important;
+}
+.mobile-plus-glass-menu::before {
+  content: "" !important;
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(120% 90% at 50% -20%, hsl(var(--foreground) / 0.11), transparent 58%);
+  opacity: 0.8;
+}
+.mobile-plus-glass-menu .plus-settings-section { position: relative; }
+.mobile-plus-glass-menu .plus-settings-label {
+  margin: 0 6px 8px;
+  color: hsl(var(--muted-foreground) / 0.9) !important;
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.14em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+.mobile-plus-glass-menu .plus-settings-card {
+  overflow: hidden;
+  border: 1px solid hsl(var(--foreground) / 0.09);
+  border-radius: 17px;
+  background: hsl(var(--card) / 0.52) !important;
+  box-shadow: 0 16px 35px -28px hsl(var(--foreground) / 0.55);
+  -webkit-backdrop-filter: blur(18px) saturate(1.25);
+  backdrop-filter: blur(18px) saturate(1.25);
+}
+.mobile-plus-glass-menu .plus-settings-tile,
+.mobile-plus-glass-menu .plus-row { background: transparent !important; }
+.mobile-plus-glass-menu .plus-settings-tile + .plus-settings-tile { border-inline-start: 1px solid hsl(var(--foreground) / 0.08); }
+.mobile-plus-glass-menu .plus-settings-icon {
+  background: hsl(var(--foreground) / 0.08) !important;
+  border: 1px solid hsl(var(--foreground) / 0.08);
+}
+.mobile-plus-glass-menu [data-sheet-grip] { position: relative; }
