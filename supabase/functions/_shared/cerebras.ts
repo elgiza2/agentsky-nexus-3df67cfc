@@ -108,7 +108,16 @@ interface CandidateAdmin {
 }
 
 /** Encrypted vault first, legacy shared pool second, then the function secret. */
+// Short-lived key cache: the vault + legacy pool queries cost 1-2s per turn.
+// Keys rotate rarely, so cache the merged list for 60s to keep TTFB sub-second.
+let cachedCandidates: VaultKey[] | null = null;
+let cachedCandidatesUntil = 0;
+const KEY_CACHE_MS = 60_000;
 async function candidateKeys(admin?: CandidateAdmin | null): Promise<VaultKey[]> {
+  const now = Date.now();
+  if (cachedCandidates && cachedCandidates.length > 0 && cachedCandidatesUntil > now) {
+    return cachedCandidates;
+  }
   const keys = await vaultKeys("cerebras").catch(() => [] as VaultKey[]);
   let legacyRows: Array<{ api_key?: unknown }> = [];
   if (admin) {
@@ -125,7 +134,12 @@ async function candidateKeys(admin?: CandidateAdmin | null): Promise<VaultKey[]>
       // The shared legacy pool is optional; keep trying the vault and env key.
     }
   }
-  return mergeCerebrasKeyCandidates(keys, legacyRows, cerebrasKey());
+  const merged = mergeCerebrasKeyCandidates(keys, legacyRows, cerebrasKey());
+  if (merged.length > 0) {
+    cachedCandidates = merged;
+    cachedCandidatesUntil = now + KEY_CACHE_MS;
+  }
+  return merged;
 }
 
 /**
