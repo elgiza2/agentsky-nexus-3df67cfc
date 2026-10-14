@@ -1,7 +1,7 @@
 import EmptyState from "@/components/common/EmptyState";
 import { memo, startTransition, useEffect, useMemo, useState, useCallback } from "react";
 import { useNavigate, useLocation, type NavigateOptions } from "react-router-dom";
-import { SquarePlus, PanelLeft, LogIn, Cloud, Sparkles, ChevronDown, Mail as MailIcon, X, Cog, Search } from "lucide-react";
+import { SquarePlus, PanelLeft, LogIn, Cloud, Sparkles, Layers, ChevronDown, Mail as MailIcon, X, Cog, Search } from "lucide-react";
 import { AgentOrb } from "@/components/agent/AgentOrb";
 import { supabase } from "@/integrations/supabase/client";
 import { getUserSafe } from "@/lib/authSafe";
@@ -415,7 +415,9 @@ const AppSidebar = ({
   }> = [
     {
       label: language === "ar-eg" ? "الوكلاء" : "Agents",
-      Icon: ({ size = 20 }) => <AgentOrb size={size} color="aurora" state="idle" />,
+      Icon: ({ size = 20, className, strokeWidth = 1.8 }) => (
+        <Layers size={size} className={className} strokeWidth={strokeWidth} />
+      ),
       path: "/agents",
       match: (p: string) => p.startsWith("/agents"),
     },

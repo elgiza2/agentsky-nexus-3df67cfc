@@ -46,6 +46,9 @@ export function isFastLaneEligible(opts: {
 
 export type FastChatOutcome = "answered" | "escalate";
 
+/** Agent id the fast model named in its escalation sentinel, if any. */
+export type FastEscalation = { agentId?: string };
+
 export async function tryFastChat({
   messages,
   authToken,
@@ -59,6 +62,7 @@ export async function tryFastChat({
   thinking,
   maxTokens,
   routingContext,
+  onEscalate,
 }: {
   messages: FastMsg[];
   authToken: string;
@@ -77,6 +81,8 @@ export async function tryFastChat({
   maxTokens?: number;
   /** Non-secret service context used by the fast agent's router. */
   routingContext?: string;
+  /** Fires with the named specialist when the model escalates with one. */
+  onEscalate?: (escalation: FastEscalation) => void;
 }): Promise<FastChatOutcome> {
   let resp: Response;
   // Hard ceilings so a stalled provider can never leave the UI in a forever
@@ -188,7 +194,11 @@ export async function tryFastChat({
   let emitted = false;
   let sawAnyPayload = false;
   const routeSentinel = "[[MEGSY_ESCALATE_TO_FULL_CHAT]]";
-  const routeSentinelPattern = /^\[\[MEGSY_ESCALATE_TO_FULL_CHAT\]\](?:$|[\s:,.!?])/i;
+  // The fast model may name the best specialist after a colon, e.g.
+  // `[[MEGSY_ESCALATE_TO_FULL_CHAT:computer]]`. We strip it before display
+  // and hand the id to the caller so the right lane starts immediately.
+  const routeSentinelPattern = /^\[\[MEGSY_ESCALATE_TO_FULL_CHAT(?::([a-z0-9_-]+))?\]\](?:$|[\s:,.!?])/i;
+  let escalatedAgentId: string | undefined;
   let routePrefix = "";
   let routeResolved = force === true;
 
@@ -206,7 +216,19 @@ export async function tryFastChat({
       const candidate = routePrefix.replace(/^\s+/, "");
       const upper = candidate.toUpperCase();
       if (routeSentinel.toUpperCase().startsWith(upper) && upper.length < routeSentinel.length) return;
-      if (routeSentinelPattern.test(candidate)) throw new Error("__ESCALATE__");
+      const sentinelMatch = candidate.match(routeSentinelPattern);
+      if (sentinelMatch) {
+        const named = (sentinelMatch[1] || "").toLowerCase().trim();
+        if (named) {
+          escalatedAgentId = named;
+          try {
+            onEscalate?.({ agentId: escalatedAgentId });
+          } catch {
+            /* ignore listener errors */
+          }
+        }
+        throw new Error("__ESCALATE__");
+      }
       routeResolved = true;
       const buffered = routePrefix;
       routePrefix = "";

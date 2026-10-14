@@ -1551,9 +1551,15 @@ const ChatPage = () => {
       return;
     }
 
-    // AgentSky is the single provider for chat, browsing, tools, images and
-    // video. The original Megsy shell remains unchanged around this turn.
-    if (text.trim() && chatUserId) {
+    // AgentSky/browser-use is a specialist lane, NOT the default chat path.
+    // The fast agent (Megsy Quick Chat) is the primary assistant and calls a
+    // specialist only when it decides one is needed. This branch runs only
+    // when the user explicitly picked an agent (?agent=...) or an AgentSky
+    // session is already active in this conversation.
+    {
+      const requestedAgentId = new URLSearchParams(location.search).get("agent") || undefined;
+      const hasAgentSkySession = messages.some((message) => Boolean(message.agentSkySessionId));
+      if (text.trim() && chatUserId && (requestedAgentId || hasAgentSkySession)) {
       isSubmittingRef.current = true;
       submitLockAtRef.current = Date.now();
       const pendingAttachments = attachedFiles.filter(
@@ -1578,7 +1584,6 @@ const ChatPage = () => {
       };
       const previousSessionId =
         [...messages].reverse().find((message) => message.agentSkySessionId)?.agentSkySessionId;
-      const requestedAgentId = new URLSearchParams(location.search).get("agent") || undefined;
       const lastAgentId = [...messages].reverse().find((message) => message.agentSkyAgent)?.agentSkyAgent?.id;
       try {
         await runAgentSkyTurn({
@@ -1610,6 +1615,7 @@ const ChatPage = () => {
         if (next) window.setTimeout(() => void sendWithTextRef.current?.(next), 80);
       }
       return;
+    }
     }
 
     // ── One agent for everything ────────────────────────────────────────────
@@ -1814,10 +1820,14 @@ const ChatPage = () => {
           /* default to the agent */
         }
       }
-      const intent: { use: boolean; task: string } = { use: !isMediaAsk, task: text };
-      if (intent.use) pendingComputerIntentRef.current = intent.task || text;
-      // Every non-media turn — fast or slow — goes to the one agent
-      // (Browser Use on DeepSeek). No other chat service is used.
+      // The computer agent is a specialist the fast agent calls when needed —
+      // not the default for every message. Only an explicit @computer mention,
+      // a confirmed follow-up, or a strong heuristic match routes here; the
+      // fast agent's own escalation (sentinel) routes here too via the full
+      // lane. Everything else falls through to the fast-first chat turn below.
+      const { classifyComputerIntent } = await import("@/lib/computer/classifyIntent");
+      const intent = await classifyComputerIntent(text, pendingComputerIntentRef.current);
+      if (intent.use && !isMediaAsk) pendingComputerIntentRef.current = intent.task || text;
       if (intent.use) {
         if (!intent.task.trim()) intent.task = "Look at the attached files and help me with them.";
         const { canRunComputerTask, recordComputerTask, computerDailyLimit } =
