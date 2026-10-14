@@ -33,6 +33,10 @@ type Args = {
   ownInsertedIdsRef: React.MutableRefObject<Set<string>>;
   onRequests: (requests: AgentRequest[]) => void;
   onSession: (sessionId: string) => void;
+  /** Live narration hook so the fast agent can narrate while this specialist works. */
+  onNarrate?: (text: string) => void;
+  /** Short human label for the specialist, used in narration lines. */
+  agentLabel?: string;
 };
 
 const toToolParts = (turn?: AgentTurn): ToolPart[] | undefined =>
@@ -52,11 +56,25 @@ export async function runAgentSkyTurn(args: Args): Promise<void> {
   const controller = new AbortController();
   args.abortControllerRef.current = controller;
   const update = (patch: Partial<Message>) => args.setMessages((prev) => prev.map((message) => message.clientId === assistantClientId ? { ...message, ...patch } : message));
+  // The fast agent announces the specialist first, then the robot wakes up
+  // (awakening) and starts working. These narration lines keep the fast
+  // agent's voice alive while the specialist runs.
+  const narrate = (text: string) => {
+    const value = String(text || "").trim();
+    if (!value) return;
+    try {
+      args.onNarrate?.(value);
+    } catch {
+      /* narration must never break the turn */
+    }
+  };
+  const specialistName = args.agentLabel || selectedAgentId || (mediaTurn ? "higgsfield" : "specialist");
   args.setMessages((prev) => [...prev, args.userMsg, {
     role: "assistant", content: "", clientId: assistantClientId, agentPending: true,
     agentSkyState: args.sessionId || args.hasPriorTurns ? "thinking" : "awakening", modelLabel: mediaTurn ? "higgsfield · Hypit" : "OpenClaw · gpt-5.6-luna",
     ...(mediaTurn ? { agentSkyAgent: { id: "higgsfield", name: "higgsfield", color: "sun" as const } } : {}),
   }]);
+  narrate(args.lang === "ar" ? `الوكيل ${specialistName} بيصحى دلوقتي…` : `Waking up ${specialistName}…`);
   args.setInput("");
   args.setAttachedFiles([]);
   args.setIsLoading(true);
@@ -73,9 +91,22 @@ export async function runAgentSkyTurn(args: Args): Promise<void> {
   const baseline = new Set<string>();
   const received = new Set<string>();
   let started = false;
+  let lastNarratedStep = "";
   const apply = (running: boolean) => {
     const turns = buildTranscript(events, args.lang, running);
     turn = [...turns].reverse().find((item): item is AgentTurn => item.type === "agent");
+    // Narrate each new specialist step live so the user follows the work.
+    try {
+      const steps = turn?.steps ?? [];
+      const latest = [...steps].reverse().find((s) => s.status === "active") ?? steps[steps.length - 1];
+      const label = latest ? String(latest.label || "").trim() : "";
+      if (label && label !== lastNarratedStep) {
+        lastNarratedStep = label;
+        narrate(args.lang === "ar" ? `${specialistName}: ${label}` : `${specialistName}: ${label}`);
+      }
+    } catch {
+      /* ignore narration errors */
+    }
     update({
       content: turn?.text || "", agentPending: running && !turn?.text,
       agentSkyState: stopped ? "idle" : orbStateFor(turn, running),

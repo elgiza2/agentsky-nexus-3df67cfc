@@ -735,6 +735,28 @@ export async function runChatStreamTurn(opts: RunChatStreamTurnOptions): Promise
     onModel: (m) => {
       if (m && typeof m === "string") capturedModel = m;
     },
+    // The fast agent is the primary assistant: when it names a specialist,
+    // announce that choice in its own voice before the full lane starts, so
+    // the user sees "I picked X" then watches X wake up and work.
+    onFastEscalate: (escalation) => {
+      const rawId = String(escalation?.agentId || "").toLowerCase().trim();
+      if (!rawId) return;
+      const label =
+        rawId === "dev" ? (isArabicTurn ? "وكيل التطوير" : "the dev agent")
+        : rawId === "computer" ? (isArabicTurn ? "وكيل الكمبيوتر" : "the computer agent")
+        : rawId === "research" ? (isArabicTurn ? "وكيل البحث" : "the research agent")
+        : rawId === "media" || rawId === "higgsfield" ? (isArabicTurn ? "وكيل الميديا" : "the media agent")
+        : rawId;
+      narrate(
+        isArabicTurn
+          ? `تمام، هنفذ "${userInput.slice(0, 80)}" — شايف إن الأنسب للمهمة دي ${label}، بدخّله دلوقتي…`
+          : `On it — "${userInput.slice(0, 80)}". The best fit here is ${label}, bringing it in now…`,
+      );
+      updateAssistantMessage((message) => ({
+        ...message,
+        metadata: { ...(message.metadata || {}), fastRoutedAgent: rawId },
+      }));
+    },
     onImages: (imgs) => {
       searchImages = imgs;
     },

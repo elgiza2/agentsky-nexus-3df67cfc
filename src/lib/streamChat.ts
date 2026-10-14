@@ -1,6 +1,6 @@
 import { startJob, subscribeJob, resumeJob } from "@/lib/jobs/client";
 import { getAnonFingerprint } from "@/lib/anonFingerprint";
-import { isFastLaneEligible, tryFastChat } from "@/lib/chat/fastChat";
+import { isFastLaneEligible, tryFastChat, type FastEscalation } from "@/lib/chat/fastChat";
 import { readAgentRosterContext } from "@/lib/agentsky/rosterSettings";
 import { readChatModelPreferences } from "@/lib/chatModelPreferences";
 import { edgeAnonKey, edgeUrl } from "@/lib/edgeRuntime";
@@ -142,6 +142,7 @@ export async function streamChat({
   onReasoning,
   onUsage,
   onModel,
+  onFastEscalate,
   localPipeline,
 
   signal,
@@ -197,6 +198,8 @@ export async function streamChat({
   }) => void;
   /** Fires once with the actual model id that produced the response (from x-model-used header or first SSE frame). */
   onModel?: (model: string) => void;
+  /** Fires when the fast agent names the specialist it wants for this turn. */
+  onFastEscalate?: (escalation: FastEscalation) => void;
   signal?: AbortSignal;
   /**
    * Local agent pipeline (Deep Research). When provided, the turn is produced
@@ -389,6 +392,7 @@ export async function streamChat({
         onModel,
         onUsage,
         onReasoning,
+        onEscalate: onFastEscalate,
         thinking: deepThinkingEnabled() && !isTrivialTurn(messages),
         ...(isTrivialTurn(messages) ? { maxTokens: 700 } : {}),
         routingContext: [
@@ -397,7 +401,7 @@ export async function streamChat({
           activeSkill ? "skill=enabled" : "",
           hasConnectedTools ? "connected_integrations=available" : "",
           rosterContext,
-          "you are the front-door router; escalate to the full agent for tools, files, browsing, images, video, slides, code, or integrations",
+          "you are the front-door router and primary assistant; answer directly when you can; escalate with [[MEGSY_ESCALATE_TO_FULL_CHAT:agent-id]] naming the best specialist (dev, computer, research, media) only when tools, files, browsing, images, video, slides, code, or integrations are truly needed",
         ]
           .filter(Boolean)
           .join("; "),
