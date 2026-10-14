@@ -155,6 +155,72 @@ const json = (body: unknown, status = 200) =>
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+function alibabaImageBase() {
+  const configuredBase = Deno.env.get("DASHSCOPE_IMAGE_BASE_URL")?.trim();
+  if (configuredBase) return configuredBase.replace(/\/+$/, "");
+  const workspaceId = Deno.env.get("DASHSCOPE_WORKSPACE_ID")?.trim();
+  if (workspaceId) {
+    const region = Deno.env.get("DASHSCOPE_REGION")?.trim() || "ap-southeast-1";
+    return `https://${workspaceId}.${region}.maas.aliyuncs.com/api/v1`;
+  }
+  return DASHSCOPE_BASE;
+}
+
+async function alibabaImageGenerate(opts: {
+  key: string;
+  model: string;
+  prompt: string;
+  images: string[];
+}): Promise<string> {
+  const base = alibabaImageBase();
+  const content = [
+    ...opts.images.slice(0, 9).map((image) => ({ image })),
+    { text: opts.prompt },
+  ];
+  const response = await fetch(`${base}/services/aigc/image-generation/generation`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${opts.key}`,
+      "Content-Type": "application/json",
+      "X-DashScope-Async": "enable",
+    },
+    body: JSON.stringify({
+      model: opts.model,
+      input: { messages: [{ role: "user", content }] },
+      parameters: { size: "1K", n: 1, watermark: false },
+    }),
+  });
+  const text = await response.text();
+  if (!response.ok) throw new Error(`Alibaba image ${response.status}: ${text.slice(0, 300)}`);
+  const created: any = JSON.parse(text);
+  const taskId = String(created?.output?.task_id ?? created?.task_id ?? "");
+  if (!taskId) throw new Error(`Alibaba image returned no task id: ${text.slice(0, 200)}`);
+
+  const deadline = Date.now() + 110_000;
+  while (Date.now() < deadline) {
+    await sleep(2_500);
+    const poll = await fetch(`${base}/tasks/${encodeURIComponent(taskId)}`, {
+      headers: { Authorization: `Bearer ${opts.key}` },
+    });
+    const result: any = await poll.json().catch(() => null);
+    if (!poll.ok) throw new Error(`Alibaba image polling failed (${poll.status})`);
+    const status = String(result?.output?.task_status ?? "").toUpperCase();
+    if (status === "SUCCEEDED") {
+      const choices: any[] = result?.output?.choices ?? [];
+      for (const choice of choices) {
+        for (const part of choice?.message?.content ?? []) {
+          if (typeof part?.image === "string" && /^https?:\/\//.test(part.image)) return part.image;
+        }
+      }
+      throw new Error("Alibaba image completed without an image URL");
+    }
+    if (["FAILED", "CANCELED", "CANCELLED"].includes(status)) {
+      throw new Error(String(result?.output?.message ?? result?.message ?? "Alibaba image task failed").slice(0, 300));
+    }
+  }
+  throw new Error("Alibaba image generation timed out");
+}
+
 async function resolveApiKey(
   admin: ReturnType<typeof createClient>,
   service: string,
@@ -167,7 +233,10 @@ async function resolveApiKey(
     /* fall through */
   }
 
-  const envKey = Deno.env.get(`${service.toUpperCase()}_API_KEY`);
+  const envNames = service === "alibaba"
+    ? ["ALIBABA_API_KEY", "DASHSCOPE_API_KEY"]
+    : [`${service.toUpperCase()}_API_KEY`];
+  const envKey = envNames.map((name) => Deno.env.get(name)?.trim()).find(Boolean);
   if (envKey) return envKey;
 
   // rotating provider_api_keys pool (d / r / y / a)
@@ -1347,7 +1416,7 @@ Deno.serve(async (req) => {
 
     let slug = String(body?.model_slug ?? "").trim();
     slug = SLUG_ALIASES[slug] ?? slug;
-    if (!slug) slug = "runway-gen4-image-turbo";
+    if (!slug) slug = "wan2.7-image";
 
     const rawImages: unknown =
       body?.reference_image_urls ?? body?.reference_image_url ?? body?.image_url ?? body?.images;
@@ -1358,7 +1427,7 @@ Deno.serve(async (req) => {
 
     const admin = createClient(SUPABASE_URL, SERVICE_KEY);
 
-    // Model catalogue row (fallback to the free deapi model when unknown).
+    // Wan is routed directly; other slugs may still resolve through the catalogue.
     const { data: modelRow } = await admin
       .from("image_models")
       .select("*")
@@ -1366,7 +1435,9 @@ Deno.serve(async (req) => {
       .maybeSingle();
     const model: any = modelRow ?? null;
     const provider = String(
-      slug.startsWith("runway-") ||
+      slug.startsWith("wan2.7-image")
+        ? "alibaba"
+        : slug.startsWith("runway-") ||
       RUNWAY_MODEL_ALIASES[slug] ||
       /^(gpt_image_2_5_flare|gpt_image_2_5_sunburst|seedream5_pro|gpt_image_2|grok_imagine_image_2|muse_image|gemini_image3\.1_flash|gen4_image_turbo)$/.test(slug)
         ? "runway"
@@ -1387,6 +1458,8 @@ Deno.serve(async (req) => {
         ? true
         : provider === "renderful"
           ? !!RENDERFUL_I2I[apiModel]
+          : provider === "alibaba"
+            ? true
           : (DEAPI_MODELS[slug]?.edit ?? !!model?.supports_image_editing);
 
     if (images.length > 0 && !supportsEditing) {
@@ -1411,28 +1484,63 @@ Deno.serve(async (req) => {
     const unitCost = Number(model?.unit_cost_usd ?? 0);
     let credits = unitCost > 0 ? Math.max(1, Number(model?.credits ?? 1)) : 0;
     let userId: string | null = null;
+    let freeImageReservationId: string | null = null;
+    const isWanImage = slug === "wan2.7-image" || slug === "wan2.7-image-pro";
 
-    // Premium (non-free) image models: 3 per UTC day without a subscription,
-    // unlimited for subscribers. Enforced in Postgres, so the UI can't bypass.
-    const isPremiumModel = provider !== "deapi";
-    if (isPremiumModel) {
-      const authHeader = req.headers.get("authorization") ?? "";
-      const token = authHeader.replace(/^Bearer\s+/i, "");
-      if (token) {
-        const userClient = createClient(
-          SUPABASE_URL,
-          Deno.env.get("SUPABASE_ANON_KEY") ?? SERVICE_KEY,
-        );
-        const { data: userData } = await userClient.auth.getUser(token);
-        userId = userData?.user?.id ?? null;
+    const authHeader = req.headers.get("authorization") ?? "";
+    const token = authHeader.replace(/^Bearer\s+/i, "");
+    if (token) {
+      const userClient = createClient(
+        SUPABASE_URL,
+        Deno.env.get("SUPABASE_ANON_KEY") ?? SERVICE_KEY,
+      );
+      const { data: userData } = await userClient.auth.getUser(token);
+      userId = userData?.user?.id ?? null;
+    }
+    if (!userId) {
+      return json({ error: true, paywall: true, message: "سجّل الدخول أولًا لإنشاء الصور." });
+    }
+
+    const { data: paidResult, error: paidError } = await admin.rpc("has_paid_plan", {
+      p_user_id: userId,
+    });
+    if (paidError) {
+      return json({ error: true, message: "تعذّر التحقق من اشتراكك، حاول تاني." }, 503);
+    }
+    const isPaid = paidResult === true;
+
+    // Free accounts can create exactly five basic Wan images per UTC day.
+    // All other image models, including Wan Pro, remain unavailable to free users.
+    if (!isPaid && (!isWanImage || slug !== "wan2.7-image")) {
+      return json({
+        error: true,
+        paywall: true,
+        message: "الخطة المجانية تشمل 5 صور يوميًا بنموذج Wan. اشترك لاستخدام نماذج الصور الأخرى.",
+      }, 402);
+    }
+    if (!isPaid) {
+      const { data: quota, error: quotaError } = await admin.rpc("consume_free_wan_image", {
+        p_user_id: userId,
+      });
+      if (quotaError) {
+        return json({ error: true, message: "تعذّر التحقق من حصة الصور اليومية، حاول تاني." }, 503);
       }
-      if (!userId) {
+      const q: any = quota ?? {};
+      if (q.allowed !== true) {
         return json({
           error: true,
           paywall: true,
-          message: "سجّل الدخول أولًا لاستخدام النماذج المتقدمة.",
-        });
+          message: "استخدمت الصور الخمسة المجانية لليوم. جرّب تاني بعد منتصف الليل بتوقيت UTC.",
+          remaining: 0,
+        }, 402);
       }
+      freeImageReservationId = typeof q.generation_id === "string" ? q.generation_id : null;
+      credits = 0;
+    }
+
+    // Retain the existing trial quota for paid users on other premium models.
+    const isPremiumModel = provider !== "deapi";
+    if (isPremiumModel && isPaid && !isWanImage) {
       const { data: quota, error: quotaErr } = await admin.rpc("consume_premium_image", {
         p_user_id: userId,
       });
@@ -1446,11 +1554,10 @@ Deno.serve(async (req) => {
           paywall: true,
           message:
             q.reason === "daily_limit"
-              ? "خلصت الـ3 صور المتقدمة بتاعة اليوم. كمّل اشتراك Megsy Pro وتوليد الصور يبقى غير محدود."
-              : "النماذج المتقدمة متاحة مع عرض التجربة ($1 لمدة 3 أيام) — 3 صور متقدمة كل يوم، وغير محدودة بعد الاشتراك.",
+              ? "خلصت صور التجربة المتقدمة لليوم. اشترك لتوليد صور غير محدود."
+              : "النماذج المتقدمة متاحة مع اشتراك Megsy Pro.",
         });
       }
-      // The daily allowance covers the cost, so no credits are charged.
       if (q.unlimited === true || q.allowed === true) credits = 0;
     }
 
@@ -1496,7 +1603,9 @@ Deno.serve(async (req) => {
     ): Promise<{ url: string; provider: string; slug: string; apiModel: string }> => {
       const attemptProvider = attemptSlug === slug
         ? provider
-        : attemptSlug.startsWith("runway-")
+        : attemptSlug.startsWith("wan2.7-image")
+          ? "alibaba"
+          : attemptSlug.startsWith("runway-")
           ? "runway"
           : attemptSlug.startsWith("renderful-")
             ? "renderful"
@@ -1509,6 +1618,17 @@ Deno.serve(async (req) => {
           : attemptProvider === "deapi"
             ? (DEAPI_MODELS[attemptSlug]?.api ?? "Flux1schnell")
             : attemptSlug.replace(/^renderful-/, "");
+      if (attemptProvider === "alibaba") {
+        const key = await resolveApiKey(admin, "alibaba");
+        if (!key) throw new Error("Alibaba API key is not configured");
+        const url = await alibabaImageGenerate({
+          key,
+          model: attemptApiModel,
+          prompt,
+          images,
+        });
+        return { url, provider: attemptProvider, slug: attemptSlug, apiModel: attemptApiModel };
+      }
       if (attemptProvider === "runway") {
         const key = await resolveApiKey(admin, "runway");
         if (!key) throw new Error("Runway API key is not configured");
@@ -1546,12 +1666,12 @@ Deno.serve(async (req) => {
       return { url, provider: attemptProvider, slug: attemptSlug, apiModel: attemptApiModel };
     };
 
-    // Never silently switch image providers: all image requests must stay on Runway.
+    // Never silently switch providers: Wan requests remain on Alibaba Model Studio.
     const attempts = [slug]
       .filter((s, i, arr) => arr.indexOf(s) === i)
       // An editing request can only run on models that accept a reference image.
       .filter((s) => {
-        if (provider === "runway") return true;
+        if (provider === "runway" || provider === "alibaba") return true;
         if (images.length === 0)
           return (
             s.startsWith("renderful-") || DEAPI_MODELS[s]?.t2i !== false
@@ -1564,6 +1684,7 @@ Deno.serve(async (req) => {
     try {
       let done: { url: string; provider: string; slug: string; apiModel: string } | null = null;
       let lastErr: unknown = null;
+      let providerSucceeded = false;
       for (const attemptSlug of attempts) {
         try {
           done = await runOne(attemptSlug);
@@ -1574,6 +1695,23 @@ Deno.serve(async (req) => {
         }
       }
       if (!done) throw lastErr ?? new Error("image generation failed");
+      providerSucceeded = true;
+      if (freeImageReservationId) {
+        const reservationId = freeImageReservationId;
+        const { data: completedRow, error: finalizeError } = await admin
+          .from("image_generations")
+          .update({ model: done.slug, status: "completed" })
+          .eq("id", reservationId)
+          .eq("user_id", userId)
+          .select("id")
+          .maybeSingle();
+        if (finalizeError || !completedRow) {
+          // Keep the pending reservation: the quota RPC counts same-day
+          // reservations until UTC reset, so a DB blip cannot grant a free slot.
+          console.error("image quota finalize failed; reservation remains counted", finalizeError?.message || "reservation missing");
+        }
+        freeImageReservationId = null;
+      }
       return json({
         image_url: done.url,
         image_urls: [done.url],
@@ -1583,6 +1721,13 @@ Deno.serve(async (req) => {
         fell_back: done.slug !== slug,
       });
     } catch (e) {
+      if (freeImageReservationId && !providerSucceeded) {
+        await admin
+          .from("image_generations")
+          .delete()
+          .eq("id", freeImageReservationId)
+          .eq("user_id", userId);
+      }
       if (credits > 0 && userId) {
         await admin
           .rpc("add_credits", {

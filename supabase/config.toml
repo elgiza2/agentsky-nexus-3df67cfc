@@ -7,3 +7,25 @@ verify_jwt = false
 
 [functions.kashier-webhook]
 verify_jwt = false
+
+
+[functions.chat-fast]
+verify_jwt = false
+
+[functions.chat-alibaba]
+verify_jwt = false
+
+[functions.team-orchestrate]
+verify_jwt = false
+
+[functions.team-tick]
+verify_jwt = false
+
+[functions.anything-api]
+verify_jwt = false
+
+[functions.media-image]
+verify_jwt = false
+
+[functions.media-video]
+verify_jwt = false

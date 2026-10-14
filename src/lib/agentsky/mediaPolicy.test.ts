@@ -7,8 +7,8 @@ import { pickModel, publicModels } from "./media.server";
 import { detectMediaIntent } from "./mediaIntent";
 describe("subscriber media policy", () => {
   it("denies both media kinds to free users", () => {
-    expect(() => pickModel("image", "free")).toThrow("للمشتركين");
-    expect(() => pickModel("video", "free")).toThrow("للمشتركين");
+    expect(() => pickModel("image", "free")).toThrow("متاحين للمشتركين");
+    expect(() => pickModel("video", "free")).toThrow("متاحين للمشتركين");
     expect(publicModels("free").every(m => m.locked)).toBe(true);
   });
   it("restricts subscribers to one configured fast endpoint per kind", () => {

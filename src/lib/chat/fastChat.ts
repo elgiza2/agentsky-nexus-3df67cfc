@@ -2,11 +2,10 @@ import { edgeAnonKey, edgeUrl } from "@/lib/edgeRuntime";
 /**
  * Fast lane for simple chat turns.
  *
- * Sends the turn to the lightweight `chat-fast` edge function (Alibaba
- * DashScope / Qwen fast model) with almost no pre-flight work. The model
- * decides routing itself: if the turn needs tools, files, browsing, media or a
- * long task, its first token is `ESCALATE`, and we hand the turn over to the
- * full `chat-alibaba` path without showing anything to the user.
+ * Sends the turn to the streaming `chat-fast` edge function (Cerebras
+ * gpt-oss-120b) with almost no pre-flight work. The model decides routing
+ * itself: if the turn needs tools, files, browsing, media or a long task, its
+ * first content is an internal sentinel that we intercept and never render.
  */
 
 type FastMsg = { role: "user" | "assistant"; content: unknown };
@@ -188,14 +187,33 @@ export async function tryFastChat({
   let textBuffer = "";
   let emitted = false;
   let sawAnyPayload = false;
+  const routeSentinel = "[[MEGSY_ESCALATE_TO_FULL_CHAT]]";
+  const routeSentinelPattern = /^\[\[MEGSY_ESCALATE_TO_FULL_CHAT\]\](?:$|[\s:,.!?])/i;
+  let routePrefix = "";
+  let routeResolved = force === true;
+
+  const emitContent = (content: string) => {
+    if (!content) return;
+    if (!emitted && modelUsed) onModel?.(modelUsed);
+    emitted = true;
+    onDelta(content);
+  };
 
   const handleContent = (content: string) => {
     sawAnyPayload = true;
-    if (!emitted && modelUsed) onModel?.(modelUsed);
-    emitted = true;
-    // The edge function performs routing before opening an SSE response, so
-    // every model token is now safe to render without an ESCALATE probe delay.
-    onDelta(content);
+    if (!routeResolved) {
+      routePrefix += content;
+      const candidate = routePrefix.replace(/^\s+/, "");
+      const upper = candidate.toUpperCase();
+      if (routeSentinel.toUpperCase().startsWith(upper) && upper.length < routeSentinel.length) return;
+      if (routeSentinelPattern.test(candidate)) throw new Error("__ESCALATE__");
+      routeResolved = true;
+      const buffered = routePrefix;
+      routePrefix = "";
+      emitContent(buffered);
+      return;
+    }
+    emitContent(content);
   };
 
   const handleLine = (line: string) => {
@@ -285,6 +303,15 @@ export async function tryFastChat({
     throw e;
   } finally {
     signal?.removeEventListener("abort", onOuterAbort);
+  }
+
+  // Flush a short, incomplete sentinel prefix as ordinary text if the stream
+  // ended before a route decision could be made.
+  if (!routeResolved && routePrefix) {
+    routeResolved = true;
+    const buffered = routePrefix;
+    routePrefix = "";
+    emitContent(buffered);
   }
 
   if (!sawAnyPayload && !emitted) return "escalate";

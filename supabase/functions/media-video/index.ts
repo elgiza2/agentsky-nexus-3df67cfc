@@ -159,6 +159,17 @@ Deno.serve(async (request) => {
     return out({ error: true, paywall: true, message: "Sign in to generate videos." }, 401);
 
   if (body.kind === "image") {
+    const { data: paidPlan, error: planError } = await db.rpc("has_paid_plan", {
+      p_user_id: user.id,
+    });
+    if (planError) return out({ error: true, message: "Could not verify subscription." }, 503);
+    if (paidPlan !== true) {
+      return out({
+        error: true,
+        paywall: true,
+        message: "الصور المجانية بتتولد عبر Wan فقط، بحد أقصى 5 صور يوميًا.",
+      }, 402);
+    }
     const { handleImage } = await import("./image.ts");
     return handleImage(db, user.id, body, out);
   }
