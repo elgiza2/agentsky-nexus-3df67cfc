@@ -279,12 +279,9 @@ Deno.serve(async (req) => {
     // Stream immediately: simple turns do not pay for a separate router call.
     // The client hides the initial route sentinel when full execution is needed.
     stream: true,
-    stream_options: { include_usage: true },
-    // gpt-oss-120b accepts reasoning_effort; "low" is the fastest first-token
-    // setting Cerebras accepts. cerebrasPayload() forwards it only to this
-    // model and drops it for ids that reject it.
-    reasoning_effort: "low",
-    temperature: 0.6,
+    // No reasoning_effort / stream_options: both add server-side work before
+    // the first token. The client tracks usage from response size instead.
+    temperature: 0.5,
     // Tight budgets keep the first token fast. Signed-in users get room for a
     // full answer, guests a smaller but still useful budget.
     max_tokens: Math.min(Math.max(Number(body.maxTokens) || 2048, 256), userId ? 4096 : 1024),
