@@ -1730,27 +1730,6 @@ const ChatPage = () => {
         return;
     }
 
-    // Free signed-in users receive three image generations per rolling 12h
-    // window. The RPC is authoritative and atomically consumes one slot.
-    if (chatMode === "images" && !isPaidPlan && chatUserId) {
-      const { data: quota, error: quotaError } = await supabase.rpc("consume_free_image_use", {
-        p_user_id: chatUserId,
-        p_limit: 3,
-      });
-      const quotaResult = quota as { allowed?: boolean; ok?: boolean; success?: boolean; remaining?: number } | null;
-      const quotaAllowed = !quotaError && (quotaResult?.allowed ?? quotaResult?.ok ?? quotaResult?.success ?? false);
-      if (!quotaAllowed) {
-        setMessages((prev) => [
-          ...prev,
-          { role: "user", clientId: `user-image-quota-${Date.now()}`, content: text, mode: chatMode } as Message,
-          { role: "assistant", clientId: `assist-image-quota-${Date.now()}`, content: "", mode: chatMode, paywall: { feature: "images" } } as Message,
-        ]);
-        setInput("");
-        isSubmittingRef.current = false;
-        return;
-      }
-    }
-
     isSubmittingRef.current = true;
     submitLockAtRef.current = Date.now();
 

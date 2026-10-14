@@ -95,5 +95,7 @@ export const ManusKeysPage = lazy(() => import("@/pages/admin/ManusKeysPage"));
 export const AdminDashboardPage = lazy(() => import("@/pages/admin/AdminDashboardPage"));
 
 export const AgentsPage = lazy(() => import("@/pages/agent/AgentsPage").then((m) => ({ default: m.AgentsPage })));
+export const AgentSelectionPage = lazy(() => import("@/pages/agent/AgentSelectionPage"));
+export const TeamWorkspacePage = lazy(() => import("@/pages/team/TeamWorkspacePage"));
 export const AgentNewPage = lazy(() => import("@/pages/agent/AgentsPage").then((m) => ({ default: m.AgentNewPage })));
 export const AgentTasksPage = lazy(() => import("@/pages/agent/AgentTasksPage"));

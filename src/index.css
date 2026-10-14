@@ -8001,3 +8001,30 @@ a.bg-primary:hover,
   }
   .upgrade-plan-btn * { color: inherit !important; }
 }
+
+
+/* Calm, shared thinking mark for chat and specialist-agent surfaces. */
+.megsy-thinking-star { position: relative; display: inline-flex; align-items: center; justify-content: center; flex: none; color: var(--megsy-gold, #e8b64c); }
+.megsy-thinking-star > svg, .megsy-thinking-mark {
+  transform-origin: center;
+  animation: megsy-thinking-breathe 1.8s ease-in-out infinite;
+  filter: drop-shadow(0 0 3px color-mix(in srgb, currentColor 28%, transparent));
+}
+.megsy-thinking-star::after {
+  content: ""; position: absolute; inset: 8%; border-radius: 50%;
+  background: linear-gradient(110deg, transparent 42%, rgba(255,255,255,.68) 50%, transparent 58%);
+  transform: translateX(-115%); opacity: 0; pointer-events: none;
+  animation: megsy-star-sweep 3.8s cubic-bezier(.4,0,.2,1) infinite;
+}
+@keyframes megsy-star-sweep {
+  0%, 55% { transform: translateX(-115%); opacity: 0; }
+  62% { opacity: 1; }
+  85%, 100% { transform: translateX(115%); opacity: 0; }
+}
+@keyframes megsy-thinking-breathe {
+  0%, 100% { transform: scale(.96); opacity: .86; }
+  50% { transform: scale(1.06); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .megsy-thinking-star > svg, .megsy-thinking-mark, .megsy-thinking-star::after { animation: none !important; }
+}

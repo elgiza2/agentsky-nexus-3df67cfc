@@ -198,7 +198,7 @@ const ThinkingTrace = ({
   // Nothing to show at all.
   if (!hasBody && !active) return null;
 
-  const pulse = running ? "motion-safe:animate-pulse" : "";
+  const pulse = running ? "megsy-thinking-mark" : "";
 
   // ── Used-tools timeline (computer / coding / long tasks) ──────────────────
   if (variant === "tools" || variant === "default") {

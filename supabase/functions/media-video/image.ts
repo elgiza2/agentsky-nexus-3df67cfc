@@ -77,6 +77,16 @@ export async function handleImage(
 ) {
   const prompt = String(body?.prompt ?? "").trim();
   if (!prompt) return out({ error: true, message: "prompt is required" }, 400);
+  const { data: paidPlan, error: planError } = await db.rpc("has_paid_plan", {
+    p_user_id: userId,
+  });
+  if (planError) return out({ error: true, message: "Could not verify subscription." }, 503);
+  if (paidPlan !== true) {
+    return out(
+      { error: true, paywall: true, message: "Free images are available through Wan only (up to 5 per day)." },
+      402,
+    );
+  }
   const rawRefs = body?.reference_image_urls ?? body?.reference_image_url ?? body?.image_url;
   const refs = (Array.isArray(rawRefs) ? rawRefs : rawRefs ? [rawRefs] : [])
     .map((x: unknown) => String(x))

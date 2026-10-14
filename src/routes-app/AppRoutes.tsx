@@ -79,6 +79,8 @@ import {
   SplashTestPage,
   AgentsPage,
   AgentNewPage,
+  AgentSelectionPage,
+  TeamWorkspacePage,
 } from "./lazyPages";
 
 const toChat = <RetiredRedirect to="/chat" />;
@@ -90,8 +92,11 @@ export const AppRoutes = ({ currentUserId }: { currentUserId: string | null }) =
     {/* ── Entry ──────────────────────────────────────────────── */}
     <Route path="/" element={<ProtectedRoute guestEntry="/welcome"><ChatPage /></ProtectedRoute>} />
     <Route path="/chat" element={<ProtectedRoute guestEntry="/welcome"><ChatPage /></ProtectedRoute>} />
-    <Route path="/agents" element={<ProtectedRoute><AgentsPage /></ProtectedRoute>} />
+    <Route path="/agents" element={<ProtectedRoute><AgentSelectionPage /></ProtectedRoute>} />
+    <Route path="/agents/directory" element={<Navigate to="/agents" replace />} />
+    <Route path="/agents/conversations" element={<ProtectedRoute><AgentsPage /></ProtectedRoute>} />
     <Route path="/agents/new" element={<ProtectedRoute><AgentNewPage /></ProtectedRoute>} />
+    <Route path="/team" element={<ProtectedRoute><TeamWorkspacePage /></ProtectedRoute>} />
     <Route path="/welcome" element={<WelcomePage />} />
     <Route path="/index" element={<ProtectedRoute guestEntry="/welcome"><ChatPage /></ProtectedRoute>} />
     <Route path="/share/:shareId" element={<SharedChatPage />} />

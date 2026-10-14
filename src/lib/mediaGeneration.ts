@@ -1,5 +1,6 @@
 // Parallel runner for the chat-driven media generation flow.
-// Calls existing edge functions `media-image` / `media-video` (+ poll) for all scenes
+// Image scenes use `anything-api` (Wan + server-side daily quota); video stays
+// on the existing media-video flow.
 // together and reports progress via callbacks so the UI updates as each result lands.
 
 import { supabase } from "@/integrations/supabase/client";
@@ -7,13 +8,10 @@ import type { MediaPlan, MediaPlanScene } from "@/components/chat/media/MediaPla
 import type { MediaSceneResult } from "@/components/chat/media/MediaResultCard";
 import { getRunwayVideoPolicy } from "@/lib/runwayModelPolicy";
 
-// Every image model goes through the deployed media router (`anything-api`),
-// which resolves the slug to DeAPI / Renderful / Runway. The legacy
-// `media-image` function only understood Runway slugs and rejected the rest.
-// One fixed image model for the whole app: GPT Image 2 on Runway (low quality),
-// served by the `media-video` function under `kind: "image"`.
-const IMAGE_FN = "media-video";
-const FIXED_IMAGE_SLUG = "runway-gpt-image-2";
+// Free and paid chat image generation use Wan through the server-side image
+// router. The router owns the free daily quota and never trusts this client slug.
+const IMAGE_FN = "anything-api";
+const FIXED_IMAGE_SLUG = "wan2.7-image";
 
 // Video job pacing depends on the provider. Alibaba Wan runs ~5–6 min end
 // to end, so we show a visible countdown before polling. deAPI usually
@@ -73,7 +71,6 @@ async function requestImage(
   }
   const { data, error } = await supabase.functions.invoke(IMAGE_FN, {
     body: {
-      kind: "image",
       prompt: scene.prompt,
       model_slug: routerModelSlug,
       model: routerModelSlug,

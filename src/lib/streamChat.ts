@@ -1,6 +1,7 @@
 import { startJob, subscribeJob, resumeJob } from "@/lib/jobs/client";
 import { getAnonFingerprint } from "@/lib/anonFingerprint";
 import { isFastLaneEligible, tryFastChat } from "@/lib/chat/fastChat";
+import { readAgentRosterContext } from "@/lib/agentsky/rosterSettings";
 import { readChatModelPreferences } from "@/lib/chatModelPreferences";
 import { edgeAnonKey, edgeUrl } from "@/lib/edgeRuntime";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "@/lib/edgeRuntime";
@@ -327,10 +328,11 @@ export async function streamChat({
   // escalates, the full path below fetches the complete context before sending
   // the request so connected apps and MCP tools are still preserved.
   let hasConnectedTools = false;
+  const rosterContext = readAgentRosterContext();
 
   // Rescue: the full chat path can stall before it emits a single byte (heavy
   // build/task prompts). Rather than leaving the user on an endless
-  // "Thinking…", we stream the answer from the fast Alibaba model instead.
+  // "Thinking…", we stream a best-effort answer from the fast GPT model.
   const rescueWithFastChat = async (): Promise<boolean> => {
     if (receivedAnyContent || hasConnectedTools) return false;
     try {
@@ -349,6 +351,7 @@ export async function streamChat({
           `mode=${chatMode || "normal"}`,
           activeAgent ? `agent=${activeAgent}` : "",
           activeSkill ? "skill=enabled" : "",
+          rosterContext,
           "escalate to the full service lane when tools, files, browsing, media, code, slides, or integrations are required",
         ]
           .filter(Boolean)
@@ -361,9 +364,9 @@ export async function streamChat({
   };
 
   // ── Fast lane ───────────────────────────────────────────────────────────
-  // Simple, tool-free turns go to the lightweight `chat-fast` function first
-  // (no turn-context pre-flight). The fast model escalates by itself when the
-  // turn actually needs tools/tasks, and we then fall through to the full path.
+  // Ordinary turns go to `chat-fast` first (no turn-context pre-flight). The
+  // model streams direct answers or emits a hidden route sentinel to continue
+  // in the full execution path when tools/specialists are genuinely needed.
   try {
     if (
       isFastLaneEligible({
@@ -393,6 +396,7 @@ export async function streamChat({
           activeAgent ? `agent=${activeAgent}` : "",
           activeSkill ? "skill=enabled" : "",
           hasConnectedTools ? "connected_integrations=available" : "",
+          rosterContext,
           "you are the front-door router; escalate to the full agent for tools, files, browsing, images, video, slides, code, or integrations",
         ]
           .filter(Boolean)
@@ -476,6 +480,7 @@ export async function streamChat({
     } catch {
       customSystem = null;
     }
+    if (rosterContext) customSystem = `${customSystem || ""}\n\n${rosterContext}`.trim();
     // Assign a fresh resume id per turn so the server can persist stream
     // chunks and the client can fetch the tail after a network drop.
     const resumeId =
